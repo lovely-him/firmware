@@ -418,6 +418,12 @@ void setup()
 #if defined(VEXT_ENABLE)
     pinMode(VEXT_ENABLE, OUTPUT);
     digitalWrite(VEXT_ENABLE, VEXT_ON_VALUE); // turn on the display power
+    pinMode(PIN_EINK_BS1, OUTPUT); // 屏幕4/3线通讯切换引脚
+    digitalWrite(PIN_EINK_BS1, 0); // 低电平四线通讯模式
+    pinMode(LORA_ANT_900, OUTPUT); //
+    digitalWrite(LORA_ANT_900, 1); // us 天线使能
+    pinMode(LORA_ANT_413, OUTPUT); //
+    digitalWrite(LORA_ANT_413, 0); // cn 天线使能
 #endif
 
 #if defined(BIAS_T_ENABLE)

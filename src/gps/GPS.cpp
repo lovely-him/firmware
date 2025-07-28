@@ -1241,6 +1241,7 @@ GnssModel_t GPS::probe(int serialSpeed)
     _serial_gps->write("$PAIR513*3D\r\n");     // save configuration
     std::vector<ChipInfo> airoha = {{"AG3335", "$PAIR021,AG3335", GNSS_MODEL_AG3335},
                                     {"AG3352", "$PAIR021,AG3352", GNSS_MODEL_AG3352},
+                                    {"SIM65M", "$PAIR021,AG3352Q_V2", GNSS_MODEL_AG3352},
                                     {"RYS3520", "$PAIR021,REYAX_RYS3520_V2", GNSS_MODEL_AG3352}};
     PROBE_FAMILY("Airoha Family", "$PAIR021*39", airoha, 1000);
 
