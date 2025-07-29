@@ -44,5 +44,6 @@
     "system_error": "cpp",
     "tuple": "cpp",
     "typeinfo": "cpp"
-  }
+  },
+  "Codegeex.RepoIndex": true
 }

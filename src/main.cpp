@@ -143,7 +143,13 @@ SPIClass SPI1(HSPI);
 
 using namespace concurrency;
 
+#if defined(RED_BANK_S3)
+#include "red_bank_s3/RedBankController.h"
+RedBankS3::RedBankController *redBankController = nullptr;
+volatile static const char slipstreamTZString[] = {"tzplaceholder                                         "};
+#else
 volatile static const char slipstreamTZString[] = {USERPREFS_TZ_STRING};
+#endif
 
 // We always create a screen object, but we only init it if we find the hardware
 graphics::Screen *screen = nullptr;
@@ -420,10 +426,6 @@ void setup()
     digitalWrite(VEXT_ENABLE, VEXT_ON_VALUE); // turn on the display power
     pinMode(PIN_EINK_BS1, OUTPUT); // 屏幕4/3线通讯切换引脚
     digitalWrite(PIN_EINK_BS1, 0); // 低电平四线通讯模式
-    pinMode(LORA_ANT_900, OUTPUT); //
-    digitalWrite(LORA_ANT_900, 1); // us 天线使能
-    pinMode(LORA_ANT_413, OUTPUT); //
-    digitalWrite(LORA_ANT_413, 0); // cn 天线使能
 #endif
 
 #if defined(BIAS_T_ENABLE)
@@ -873,6 +875,11 @@ void setup()
 #if HAS_SCREEN
     screen = new graphics::Screen(screen_found, screen_model, screen_geometry);
 #endif
+
+#if defined(RED_BANK_S3)
+    redBankController = new RedBankS3::RedBankController();
+#endif
+
     // setup TZ prior to time actions.
 #if !MESHTASTIC_EXCLUDE_TZ
     LOG_DEBUG("Use compiled/slipstreamed %s", slipstreamTZString); // important, removing this clobbers our magic string
@@ -1306,6 +1313,10 @@ void setup()
     LOG_DEBUG("Free heap  : %7d bytes", ESP.getFreeHeap());
     LOG_DEBUG("Free PSRAM : %7d bytes", ESP.getFreePsram());
 #endif
+
+#if defined(RED_BANK_S3)
+    redBankController->setup();
+#endif
 }
 
 #endif
@@ -1400,6 +1411,9 @@ void loop()
 #endif
 #ifdef ARCH_NRF52
     nrf52Loop();
+#endif
+#if defined(RED_BANK_S3)
+    redBankController->loop();
 #endif
     powerCommandsCheck();
 

@@ -58,6 +58,12 @@ extern UdpMulticastHandler *udpHandler;
 // Global Screen singleton.
 extern graphics::Screen *screen;
 
+// Global RedBankS3Controller singleton.
+#if defined(RED_BANK_S3)
+#include "red_bank_s3/RedBankController.h"
+extern RedBankS3::RedBankController *redBankController;
+#endif
+
 #if !defined(ARCH_STM32WL) && !MESHTASTIC_EXCLUDE_I2C
 #include "motion/AccelerometerThread.h"
 extern AccelerometerThread *accelerometerThread;
