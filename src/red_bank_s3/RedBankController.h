@@ -5,7 +5,7 @@
 #include "NodeDB.h"
 
 #include "AntennaManager.h"
-#include "../variants/red_bank_s3/variant.h"
+#include "../variants/esp32s3/red_bank_s3/variant.h"
 
 namespace RedBankS3
 {

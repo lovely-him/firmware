@@ -47,6 +47,7 @@
 #define BUTTON_KEY2_PIN (2)     // ADC 按键2
 
 // Lora SPI通信引脚定义
+#define LORA_EN         (42)    // Lora 模块电源控制引脚
 #define LORA_SCK        (5)     // SPI时钟
 #define LORA_MISO       (3)     // SPI数据输入
 #define LORA_MOSI       (6)     // SPI数据输出
@@ -64,6 +65,7 @@
 
 // Lora 模块类型定义
 #ifdef USE_SX1262
+#define SX126X_POWER_EN (LORA_EN)       // SX1262 电源控制引脚
 #define SX126X_CS       LORA_CS         // FIXME - we really should define LORA_CS instead
 #define SX126X_DIO1     LORA_DIO1       // LORA_DIO1
 #define SX126X_BUSY     LORA_DIO2       // LORA_DIO2
