@@ -38,6 +38,10 @@
 #include <memory>
 #include <utility>
 
+#ifdef ELECROW_ThinkNode_M5
+PCA9557 io(0x18, &Wire);
+#endif
+
 #ifdef ARCH_ESP32
 #include "freertosinc.h"
 #if !MESHTASTIC_EXCLUDE_WEBSERVER
@@ -302,6 +306,14 @@ void setup()
     digitalWrite(PIN_POWER_EN, HIGH);
 #endif
 
+#if defined(ELECROW_ThinkNode_M5)
+    Wire.begin(48, 47);
+    io.pinMode(PCA_PIN_EINK_EN, OUTPUT);
+    io.pinMode(PCA_PIN_POWER_EN, OUTPUT);
+    io.digitalWrite(PCA_PIN_POWER_EN, HIGH);
+    // io.pinMode(C2_PIN, OUTPUT);
+#endif
+
 #ifdef LED_POWER
     pinMode(LED_POWER, OUTPUT);
     digitalWrite(LED_POWER, LED_STATE_ON);
@@ -319,7 +331,11 @@ void setup()
 
 #ifdef BLE_LED
     pinMode(BLE_LED, OUTPUT);
+#ifdef BLE_LED_INVERTED
+    digitalWrite(BLE_LED, HIGH);
+#else
     digitalWrite(BLE_LED, LOW);
+#endif
 #endif
 
 #if defined(T_DECK)
@@ -917,13 +933,19 @@ void setup()
     service = new MeshService();
     service->init();
 
-    if (nodeDB->keyIsLowEntropy) {
-        service->reloadConfig(SEGMENT_CONFIG);
-        rebootAtMsec = (millis() + DEFAULT_REBOOT_SECONDS * 1000);
-    }
-
     // Now that the mesh service is created, create any modules
     setupModules();
+
+    // warn the user about a low entropy key
+    if (nodeDB->keyIsLowEntropy && !nodeDB->hasWarned) {
+        LOG_WARN(LOW_ENTROPY_WARNING);
+        meshtastic_ClientNotification *cn = clientNotificationPool.allocZeroed();
+        cn->level = meshtastic_LogRecord_Level_WARNING;
+        cn->time = getValidTime(RTCQualityFromNet);
+        sprintf(cn->message, LOW_ENTROPY_WARNING);
+        service->sendClientNotification(cn);
+        nodeDB->hasWarned = true;
+    }
 
 // buttons are now inputBroker, so have to come after setupModules
 #if HAS_BUTTON
