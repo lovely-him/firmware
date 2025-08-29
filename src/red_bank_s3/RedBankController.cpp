@@ -23,6 +23,12 @@ namespace RedBankS3
         // 使用天线管理器处理天线切换
         AntennaManager::switchAntennaForRegion(config.lora.region);
 
+        // 每5秒打印一次日志
+        static unsigned long lastLogTime = 0;
+        unsigned long currentTime = millis();
+        if (currentTime - lastLogTime >= 5000) {
+            lastLogTime = currentTime;
+        }
     }
 
 

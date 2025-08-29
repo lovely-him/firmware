@@ -43,7 +43,8 @@
     "streambuf": "cpp",
     "system_error": "cpp",
     "tuple": "cpp",
-    "typeinfo": "cpp"
+    "typeinfo": "cpp",
+    "*.h_v8": "cpp"
   },
   "Codegeex.RepoIndex": true
 }
