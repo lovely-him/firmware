@@ -164,7 +164,13 @@ SPIClass SPI1(HSPI);
 
 using namespace concurrency;
 
+#if defined(RED_BANK_S3)
+#include "red_bank_s3/RedBankController.h"
+RedBankS3::RedBankController *redBankController = nullptr;
+volatile static const char slipstreamTZString[] = {"tzplaceholder                                         "};
+#else
 volatile static const char slipstreamTZString[] = {USERPREFS_TZ_STRING};
+#endif
 
 // We always create a screen object, but we only init it if we find the hardware
 graphics::Screen *screen = nullptr;
@@ -447,6 +453,11 @@ void setup()
 #if defined(VEXT_ENABLE)
     pinMode(VEXT_ENABLE, OUTPUT);
     digitalWrite(VEXT_ENABLE, VEXT_ON_VALUE); // turn on the display power
+#endif
+
+#if defined(red_bank_s3)
+    pinMode(PIN_EINK_BS1, OUTPUT); // 屏幕4/3线通讯切换引脚
+    digitalWrite(PIN_EINK_BS1, 0); // 低电平四线通讯模式
 #endif
 
 #if defined(BIAS_T_ENABLE)
@@ -890,6 +901,10 @@ void setup()
 #endif
     }
 #endif // HAS_SCREEN
+
+#if defined(RED_BANK_S3)
+    redBankController = new RedBankS3::RedBankController();
+#endif
 
     // setup TZ prior to time actions.
 #if !MESHTASTIC_EXCLUDE_TZ
@@ -1492,6 +1507,9 @@ void setup()
 
     // We manually run this to update the NodeStatus
     nodeDB->notifyObservers(true);
+#if defined(RED_BANK_S3)
+    redBankController->setup();
+#endif
 }
 
 #endif
@@ -1586,6 +1604,9 @@ void loop()
 #endif
 #ifdef ARCH_NRF52
     nrf52Loop();
+#endif
+#if defined(RED_BANK_S3)
+    redBankController->loop();
 #endif
     power->powerCommandsCheck();
 
