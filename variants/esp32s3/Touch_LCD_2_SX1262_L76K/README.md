@@ -15,7 +15,7 @@
 - DC (数据/命令): GPIO42
 - MOSI: GPIO38
 - SCK: GPIO39
-- MISO: GPIO40
+- MISO: 未使用
 - RST (复位): 未使用
 - BL (背光): GPIO1
 
@@ -24,6 +24,8 @@
 - SCL: GPIO47
 - INT (中断): GPIO46
 - I2C地址: 0x15
+- **驱动方式**: 使用LovyanGFX的Touch_CST816S驱动 (CST816D与CST816S完全兼容)
+- **注意**: 已在TFTDisplay.cpp中配置使用lgfx::Touch_CST816S类
 
 ### SX1262 LoRa模块 (SPI接口)
 - CS (NSS): GPIO18
@@ -68,11 +70,37 @@ pio run -e touch_lcd_2_sx1262_l76k
 
 ## 注意事项
 
-1. **SPI分离**: ST7789使用SPI2_HOST，SX1262使用独立的SPI引脚，避免冲突
-2. **I2C地址**: CST816D触摸芯片的I2C地址为0x15
-3. **GPS波特率**: L76K默认使用9600波特率
-4. **电源管理**: 使用VEXT_ENABLE引脚控制外部模块电源
-5. **触摸校准**: 首次使用时可能需要校准触摸屏
+1. `arduino` 的 默认 `spi(单元2)` 接到 `lora`, 默认 `i2c(单元?)` 共用, 默认 `uart(单元0)` 接到 `gps`.
+2. `gps` 的 `rx/tx` 引脚不能接上拉电阻, 注意引脚的选取. 其他引脚也是同理. 不要连接其他东西避免干扰.
+3. `gps` 的供电不能太低, 无法正常工作. 注意供电.
+4. 目前测试 `lovyan03/LovyanGFX@1.2.0` 不能用新版, 固定版本才能编译.
+5. 目前测试不能添加调试等功能, 否则编译失败. 连 `CONFIG_ARDUHAL_LOG_COLORS` 都不可以? 所以其他多余的配置不要添加.
+6. 开源工程相对混乱, 各种命名意思相同的宏定义乱飞, 比如不能定义 `USE_ST7789` 和 `HAS_TFT`, 开启屏幕的宏定义其实是 `ST7789_CS`. 多余的宏定义不要添加.
+7. 目前发现 `seeed-sensecap-indicator` 和 `t-deck` 的屏幕和触摸配置都是自定义的 `bb_captouch` 库, 在库中加了自己专门的配置, 所以不能直接用.
+8. 电池电压检测注意 `ADC_MULTIPLIER` 和 `ADC_ATTENUATION` 的配置, 否则测量不对, 还有引脚 `BATTERY_PIN` 和通道 `ADC_CHANNEL` 的设置.
+9. 发现有可重载的初始化函数 `lateInitVariant()`, 目前只有三个配置用到, 类似 `variant.cpp` 中的 `initVariant()`, 不一样的是前者是硬件初始化到一定阶段后执行. `t_deck_pro` 配置的触摸功能就重载了.
+10. 一步步查看触摸驱动和屏幕的驱动后, 大致了解了配置, 只需要在 `src\graphics\TFTDisplay.cpp` 中配置即可. 库中本来就有这个触摸芯片系列 `工程目录\.pio\libdeps\touch_lcd_2_sx1262_l76k\LovyanGFX\src\lgfx\v1\touch\Touch_CST816S.cpp` .
+
+```cpp
+class LGFX : public lgfx::LGFX_Device
+{
+    lgfx::Panel_ST7789 _panel_instance;
+    lgfx::Bus_SPI _bus_instance;
+    lgfx::Light_PWM _light_instance;
+#if HAS_TOUCHSCREEN
+#if defined(T_WATCH_S3) || defined(ELECROW)
+    lgfx::Touch_FT5x06 _touch_instance;
+#elif defined(TOUCH_LCD_2_SX1262_L76K)
+    lgfx::Touch_CST816S _touch_instance;  // CST816D兼容CST816S驱动
+#else
+    lgfx::Touch_GT911 _touch_instance;
+#endif
+#endif
+}
+// ...
+```
+
+
 
 ## 功能特性
 

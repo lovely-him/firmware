@@ -52,6 +52,7 @@
 #define SCREEN_TOUCH_INT 46                 // 触摸中断引脚
 #define TOUCH_I2C_PORT 0                    // I2C端口
 #define TOUCH_SLAVE_ADDRESS 0x15            // CST816D I2C地址 (0x15)
+// #define WAKE_ON_TOUCH                    // 启用触摸中断唤醒功能
 
 // 按钮配置
 #define BUTTON_PIN 0                        // 用户按钮
@@ -63,8 +64,8 @@
 // #define VEXT_ON_VALUE HIGH               // 外部电源使能引脚有效电平
 #define BATTERY_PIN 5                       // 电池电压检测引脚
 #define ADC_CHANNEL ADC1_GPIO5_CHANNEL      // 电池电压检测通道
-#define ADC_ATTENUATION ADC_ATTEN_DB_2_5    // 电池电压检测衰减
-#define ADC_MULTIPLIER 2.0                  // 电压分压器比例
+#define ADC_ATTENUATION ADC_ATTEN_DB_12     // 电池电压检测衰减 (12dB, 0-3.3V范围)
+#define ADC_MULTIPLIER 3.0                  // 电压分压器比例 (1:3分压)
 
 // SX1262 LoRa模块配置
 #define USE_SX1262
