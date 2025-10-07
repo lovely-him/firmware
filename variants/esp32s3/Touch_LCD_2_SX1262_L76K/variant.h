@@ -6,6 +6,9 @@
 // - LoRa: SX1262 射频芯片
 // - GPS: L76K 模组
 
+#ifndef __TOUCH_LCD_2_SX1262_L76K_VARIANT_H__
+#define __TOUCH_LCD_2_SX1262_L76K_VARIANT_H__
+
 // #define LED_PIN 5                        // LED未连接
 
 // I2C配置 (触摸屏)
@@ -13,33 +16,34 @@
 #define I2C_SCL 47                          // I2C时钟线
 
 // ST7789 TFT LCD配置 (2寸 240x320)
-#define USE_ST7789
-#define VTFT_CTRL (-1)                      // TFT电源控制引脚 (未使用)
-#define VTFT_LEDA (-1)                      // 背光控制引脚 (未使用)
+// #define HAS_TFT                          // 用于开启某些功能, 不可以开启,
+// #define USE_ST7789                       // 用于开启某些功能, 不可以开启,
+// #define VTFT_LEDA (1)                    // 背光控制引脚, 上面宏定义用得到的, 不要开启
+// #define VTFT_CTRL (9)                    // TFT电源控制引脚, 上面宏定义用得到的, 不要开启
+// #define ST7789_NSS (ST7789_CS)           // 片选引脚, 上面宏定义用得到的, 不要开启
 #define ST7789_CS (45)                      // 片选引脚
-#define ST7789_NSS (ST7789_CS)              // 片选引脚 (NSS = CS)
 #define ST7789_RS (42)                      // 数据/命令选择引脚 (DC)
 #define ST7789_SDA (38)                     // MOSI数据线
 #define ST7789_SCK (39)                     // 时钟线
-#define ST7789_RESET (-1)                   // 复位引脚 (未使用)
-#define ST7789_MISO 40                      // MISO引脚
-#define ST7789_BUSY (-1)                    // 不使用BUSY
-#define ST7789_BL (1)                       // 背光控制引脚
+#define ST7789_MISO (-1)                    // MISO引脚 (允许设置 -1)
+#define ST7789_RESET (-1)                   // 复位引脚 (库实际未使用)
+#define ST7789_BUSY (-1)                    // BUSY引脚 (库实际未使用)
+#define ST7789_BL (1)                       // 背光控制引脚 (功能冲突, 屏蔽)
 #define ST7789_SPI_HOST SPI3_HOST           // SPI2 默认被 lora 占用
-#define SPI_FREQUENCY 80000000              // 80MHz SPI频率
-#define SPI_READ_FREQUENCY 80000000         // 80MHz读取频率
+#define SPI_FREQUENCY 40000000              // 40MHz SPI频率
+#define SPI_READ_FREQUENCY 16000000         // 16MHz读取频率
 
 // 屏幕参数
-#define TFT_HEIGHT 320                       // TFT屏幕高度像素数，2寸屏幕垂直分辨率
-#define TFT_WIDTH 240                        // TFT屏幕宽度像素数，2寸屏幕水平分辨率
-#define TFT_OFFSET_X 0                       // 屏幕X轴偏移量，用于校准显示位置
-#define TFT_OFFSET_Y 0                       // 屏幕Y轴偏移量，用于校准显示位置
-#define TFT_OFFSET_ROTATION 0                // 屏幕旋转偏移角度，0=不旋转
-#define SCREEN_ROTATE                        // 启用屏幕旋转功能，支持横竖屏切换
+#define TFT_HEIGHT 320                      // TFT屏幕高度像素数，2寸屏幕垂直分辨率
+#define TFT_WIDTH 240                       // TFT屏幕宽度像素数，2寸屏幕水平分辨率
+#define TFT_OFFSET_X 0                      // 屏幕X轴偏移量，用于校准显示位置
+#define TFT_OFFSET_Y 0                      // 屏幕Y轴偏移量，用于校准显示位置
+#define TFT_OFFSET_ROTATION 0               // 屏幕旋转偏移角度，0=不旋转
+#define SCREEN_ROTATE                       // 启用屏幕旋转功能，支持横竖屏切换
 #define SCREEN_TRANSITION_FRAMERATE 5       // 5fps过渡动画
 #define BRIGHTNESS_DEFAULT 130              // 默认亮度
 
-// TFT颜色配置
+// TFT颜色配置 (为了消除警告)
 #define TFT_MESH_OVERRIDE COLOR565(0x67, 0xEA, 0x94)  // Meshtastic绿色主题
 #define TFT_BLACK COLOR565(0x00, 0x00, 0x00)          // 黑色
 
@@ -51,8 +55,8 @@
 
 // 按钮配置
 #define BUTTON_PIN 0                        // 用户按钮
-#define BUTTON_ACTIVE_LOW true
-#define BUTTON_ACTIVE_PULLUP true
+#define BUTTON_ACTIVE_LOW true              // 按钮低电平有效
+#define BUTTON_ACTIVE_PULLUP true           // 启用内部上拉电阻
 
 // 电源管理
 // #define VEXT_ENABLE 16                   // 外部电源使能引脚未连接
@@ -81,17 +85,17 @@
 #define LORA_CTRL_GPIO 6                    // 天线使能引脚
 
 // SX1262专用配置
-#define SX126X_CS LORA_CS
-#define SX126X_DIO1 LORA_DIO1
-#define SX126X_BUSY LORA_DIO2
-#define SX126X_RESET LORA_RESET
+#define SX126X_CS LORA_CS                   // SX1262片选引脚
+#define SX126X_DIO1 LORA_DIO1               // SX1262中断引脚
+#define SX126X_BUSY LORA_DIO2               // SX1262忙状态引脚
+#define SX126X_RESET LORA_RESET             // SX1262复位引脚
 #define SX126X_DIO2_AS_RF_SWITCH            // 使用DIO2作为RF开关
 // #define SX126X_DIO3_TCXO_VOLTAGE 1.8     // TCXO电压, 不使用
 
 // L76K GPS模块配置
 #define GPS_L76K
-#define GPS_RX_PIN 16                       // GPS接收引脚 (连接到GPS TX)
-#define GPS_TX_PIN 21                       // GPS发送引脚 (连接到GPS RX)
+#define GPS_RX_PIN 14                       // GPS接收引脚 (连接到GPS TX)
+#define GPS_TX_PIN 9                        // GPS发送引脚 (连接到GPS RX)
 #define GPS_BAUDRATE 9600                   // L76K默认波特率
 #define GPS_THREAD_INTERVAL 50              // GPS线程间隔
 // #define PIN_GPS_PPS -1                   // GPS PPS引脚 (未连接)
@@ -101,11 +105,12 @@
 // #define GPS_EN_ACTIVE HIGH               // GPS使能有效电平
 
 // 其他配置
-#define HAS_32768HZ 1                       // 32.768kHz晶振
-#define USE_POWERSAVE                       // 启用省电模式
-#define SLEEP_TIME 120                      // 睡眠时间(秒)
+// #define HAS_32768HZ 1                    // 32.768kHz晶振
+// #define USE_POWERSAVE                    // 启用省电模式
+// #define SLEEP_TIME 120                   // 睡眠时间(秒)
 
 // 模块使能
-#define CANNED_MESSAGE_MODULE_ENABLE 1
+// #define CANNED_MESSAGE_MODULE_ENABLE 1   // 预设消息模块
 
 // 引脚分配已优化，避免冲突
+#endif /* __TOUCH_LCD_2_SX1262_L76K_VARIANT_H__ */

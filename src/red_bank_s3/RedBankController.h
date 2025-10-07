@@ -5,7 +5,7 @@
 #include "NodeDB.h"
 
 #include "AntennaManager.h"
-#include "../variants/esp32s3/red_bank_s3/variant.h"
+// variant.h 已经通过 NodeDB.h -> configuration.h 包含，不需要再次包含
 
 namespace RedBankS3
 {

@@ -19,15 +19,15 @@
 // 注意: 本开发板没有连接 LED
 // #define LED_BUILTIN -1
 
-// ==== 串口配置 ====
-static const uint8_t TX = 21;                         // 默认串口 TX 引脚
-static const uint8_t RX = 16;                         // 默认串口 RX 引脚
+// ==== 串口配置 (默认连接 gps 模块) ====
+static const uint8_t TX = 9;                          // 默认串口 TX 引脚
+static const uint8_t RX = 14;                         // 默认串口 RX 引脚
 
-// ==== I2C 配置 ====
+// ==== I2C 配置 (默认所有 i2c 设备共用) ====
 static const uint8_t SDA = 48;                        // I2C 数据线
 static const uint8_t SCL = 47;                        // I2C 时钟线
 
-// ==== SPI 配置 ====
+// ==== SPI 配置 (默认连接到 lora 模块) ====
 static const uint8_t SS = 18;                         // SPI 片选引脚
 static const uint8_t MOSI = 7;                        // SPI MOSI 数据引脚
 static const uint8_t MISO = 10;                       // SPI MISO 数据引脚

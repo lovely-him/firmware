@@ -36,8 +36,8 @@
 - CTRL (天线使能): GPIO6
 
 ### L76K GPS模块 (UART接口)
-- TX: GPIO21 (连接到GPS RX)
-- RX: GPIO16 (连接到GPS TX)
+- TX: GPIO9 (连接到GPS RX)
+- RX: GPIO14 (连接到GPS TX)
 - RST: GPIO5
 - PPS: 未连接
 - EN: 未连接
@@ -61,6 +61,7 @@ pio run -e touch_lcd_2_sx1262_l76k
 本配置参考了以下现有变体:
 - `variants/esp32s3/t-deck/` - ST7789 TFT配置 (编译失败)
 - `variants/esp32s3/heltec_vision_master_t190/` - ST7789 TFT配置 (编译成功)
+- `variants/esp32s3/t-watch-s3/` - ST7789 TFT配置 (运行成功)
 - `variants/esp32s3/heltec_v3/` - SX1262 LoRa配置
 - `variants/esp32s3/heltec_v4/` - L76K GPS配置
 - `variants/esp32s3/rak_wismesh_tap_v2/` - 触摸屏配置

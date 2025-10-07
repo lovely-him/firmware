@@ -3,7 +3,7 @@
 #include "mesh/MeshService.h"
 #include "NodeDB.h"
 #include "DebugConfiguration.h"
-#include "../variants/esp32s3/red_bank_s3/variant.h"
+// variant.h 已经通过 configuration.h 包含，不需要再次包含
 
 // 天线状态跟踪
 meshtastic_Config_LoRaConfig_RegionCode AntennaManager::currentRegion = meshtastic_Config_LoRaConfig_RegionCode_UNSET;
