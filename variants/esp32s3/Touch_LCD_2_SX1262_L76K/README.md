@@ -73,7 +73,7 @@ pio run -e touch_lcd_2_sx1262_l76k
 1. `arduino` 的 默认 `spi(单元2)` 接到 `lora`, 默认 `i2c(单元?)` 共用, 默认 `uart(单元0)` 接到 `gps`.
 2. `gps` 的 `rx/tx` 引脚不能接上拉电阻, 注意引脚的选取. 其他引脚也是同理. 不要连接其他东西避免干扰.
 3. `gps` 的供电不能太低, 无法正常工作. 注意供电.
-4. 目前测试 `lovyan03/LovyanGFX@1.2.0` 不能用新版, 固定版本才能编译.
+4. 目前测试 `lovyan03/LovyanGFX@1.2.0` 不能用新版, 固定版本才能编译. 默认支持, 不需要额外导入这个 `ST7789` 驱动库 `https://github.com/meshtastic/st7789/archive/bd33ea58ddfe4a5e4a66d53300ccbd38d66ac21f.zip`
 5. 目前测试不能添加调试等功能, 否则编译失败. 连 `CONFIG_ARDUHAL_LOG_COLORS` 都不可以? 所以其他多余的配置不要添加.
 6. 开源工程相对混乱, 各种命名意思相同的宏定义乱飞, 比如不能定义 `USE_ST7789` 和 `HAS_TFT`, 开启屏幕的宏定义其实是 `ST7789_CS`. 多余的宏定义不要添加.
 7. 目前发现 `seeed-sensecap-indicator` 和 `t-deck` 的屏幕和触摸配置都是自定义的 `bb_captouch` 库, 在库中加了自己专门的配置, 所以不能直接用.

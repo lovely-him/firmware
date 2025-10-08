@@ -28,7 +28,7 @@
 #define ST7789_MISO (-1)                    // MISO引脚 (允许设置 -1)
 #define ST7789_RESET (-1)                   // 复位引脚 (库实际未使用)
 #define ST7789_BUSY (-1)                    // BUSY引脚 (库实际未使用)
-#define ST7789_BL (1)                       // 背光控制引脚 (功能冲突, 屏蔽)
+#define ST7789_BL (1)                       // 背光控制引脚
 #define ST7789_SPI_HOST SPI3_HOST           // SPI2 默认被 lora 占用
 #define SPI_FREQUENCY 40000000              // 40MHz SPI频率
 #define SPI_READ_FREQUENCY 16000000         // 16MHz读取频率
