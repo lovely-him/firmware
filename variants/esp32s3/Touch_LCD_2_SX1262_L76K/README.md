@@ -80,6 +80,7 @@ pio run -e touch_lcd_2_sx1262_l76k
 8. 电池电压检测注意 `ADC_MULTIPLIER` 和 `ADC_ATTENUATION` 的配置, 否则测量不对, 还有引脚 `BATTERY_PIN` 和通道 `ADC_CHANNEL` 的设置.
 9. 发现有可重载的初始化函数 `lateInitVariant()`, 目前只有三个配置用到, 类似 `variant.cpp` 中的 `initVariant()`, 不一样的是前者是硬件初始化到一定阶段后执行. `t_deck_pro` 配置的触摸功能就重载了.
 10. 一步步查看触摸驱动和屏幕的驱动后, 大致了解了配置, 只需要在 `src\graphics\TFTDisplay.cpp` 中配置即可. 库中本来就有这个触摸芯片系列 `工程目录\.pio\libdeps\touch_lcd_2_sx1262_l76k\LovyanGFX\src\lgfx\v1\touch\Touch_CST816S.cpp` .
+11. 修改 `lora` 配置兼容性, 适配 `rxen` 引脚和 `tcxo` 引脚的功能, 可以使用 `E22-900M20S` 等模块.
 
 ```cpp
 class LGFX : public lgfx::LGFX_Device

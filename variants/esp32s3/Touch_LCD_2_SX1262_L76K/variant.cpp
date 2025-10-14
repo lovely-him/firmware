@@ -18,10 +18,13 @@ void initVariant()
 {
     ESP_LOGI(TAG, "初始化 Touch_LCD_2_SX1262_L76K 变体");
 
+    // 没有将天线控制交给 SX126x 库, 需要手动初始化
+#if SX126X_RXEN == RADIOLIB_NC
     // 初始化 LoRa 天线控制引脚
     // LORA_CTRL_GPIO (GPIO6) 控制天线使能, 有效电平为低
     pinMode(LORA_CTRL_GPIO, OUTPUT);
     digitalWrite(LORA_CTRL_GPIO, LOW);  // 设置为低电平(有效)
+#endif
 
     ESP_LOGI(TAG, "LORA_CTRL_GPIO (GPIO%d) 已初始化为低电平(有效)", LORA_CTRL_GPIO);
 }
