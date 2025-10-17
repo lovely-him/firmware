@@ -73,6 +73,7 @@
 #define LORA_DIO1 17                        // 中断引脚 (GPIO输入)
 #define LORA_DIO2 4                         // BUSY引脚
 #define LORA_DIO3                           // SX1262 的 DIO3 作为 TCXO 电压输出引脚, 不需要连接 MCU, 这个宏定义好像实际上并没有用到?
+#define LORA_EN 11                          // LoRa 模块电源使能引脚
 
 // SPI接口配置 (使用SPI2_HOST)
 #define LORA_SCK 8                          // LoRa SPI时钟
@@ -95,6 +96,7 @@
 #define SX126X_DIO3_TCXO_VOLTAGE 1.8        // DIO3 输出 TCXO 电压, 为有源晶振供电, 搭配使用
 #define SX126X_RXEN LORA_CTRL_GPIO          // 连接 MCU 或是直接接地, 常有效.
 #define SX126X_TXEN RADIOLIB_NC             // 将 DIO2 与 TXEN 引脚连接, 用于控制天线开关
+#define SX126X_POWER_EN LORA_EN             // LoRa 模块电源使能引脚
 
 // E22-900M22S 模块配置, 此模块为 SX1268/SX1262+PA+LNA, (我最后没看到手册有关于 PA 限制的说明, 这里直接按默认值 0)
 // #define NUM_PA_POINTS 22                 // 非线性放大器增益, 略过, 不使用, 只是注释说明有这个功能
@@ -110,8 +112,8 @@
 // #define PIN_GPS_PPS -1                   // GPS PPS引脚 (未连接)
 // #define PIN_GPS_RESET -1                 // GPS复位引脚 (未连接)
 // #define GPS_RESET_MODE LOW               // GPS复位有效电平
-// #define PIN_GPS_EN -1                    // GPS使能引脚 (未连接)
-// #define GPS_EN_ACTIVE HIGH               // GPS使能有效电平
+#define PIN_GPS_EN 12                       // GPS使能引脚 (未连接)
+#define GPS_EN_ACTIVE HIGH                  // GPS使能有效电平
 
 // 其他配置
 // #define HAS_32768HZ 1                    // 32.768kHz晶振
