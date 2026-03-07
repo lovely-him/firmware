@@ -51,6 +51,10 @@ constexpr int reconnectMax = 5;
 static uint8_t bytes[meshtastic_MqttClientProxyMessage_size + 30]; // 12 for channel name and 16 for nodeid
 
 static bool isMqttServerAddressPrivate = false;
+static bool isConnected = false;
+
+static uint32_t lastPositionUnavailableWarning = 0;
+static const uint32_t POSITION_UNAVAILABLE_WARNING_INTERVAL_MS = 15000; // 15 seconds
 
 inline void onReceiveProto(char *topic, byte *payload, size_t length)
 {
@@ -59,17 +63,40 @@ inline void onReceiveProto(char *topic, byte *payload, size_t length)
         LOG_ERROR("Invalid MQTT service envelope, topic %s, len %u!", topic, length);
         return;
     }
+
     const meshtastic_Channel &ch = channels.getByName(e.channel_id);
+    // Find channel by channel_id and check downlink_enabled
+    if (!(strcmp(e.channel_id, "PKI") == 0 ||
+          (strcmp(e.channel_id, channels.getGlobalId(ch.index)) == 0 && ch.settings.downlink_enabled))) {
+        return;
+    }
+
+    bool anyChannelHasDownlink = false;
+    size_t numChan = channels.getNumChannels();
+    for (size_t i = 0; i < numChan; ++i) {
+        const auto &c = channels.getByIndex(i);
+        if (c.settings.downlink_enabled) {
+            anyChannelHasDownlink = true;
+            break;
+        }
+    }
+
+    if (strcmp(e.channel_id, "PKI") == 0 && !anyChannelHasDownlink) {
+        return;
+    }
     // Generate node ID from nodenum for comparison
     std::string nodeId = nodeDB->getNodeId();
     if (strcmp(e.gateway_id, nodeId.c_str()) == 0) {
         // Generate an implicit ACK towards ourselves (handled and processed only locally!) for this message.
         // We do this because packets are not rebroadcasted back into MQTT anymore and we assume that at least one node
         // receives it when we get our own packet back. Then we'll stop our retransmissions.
-        if (isFromUs(e.packet))
-            routingModule->sendAckNak(meshtastic_Routing_Error_NONE, getFrom(e.packet), e.packet->id, ch.index);
-        else
+        if (isFromUs(e.packet)) {
+            auto pAck = routingModule->allocAckNak(meshtastic_Routing_Error_NONE, getFrom(e.packet), e.packet->id, ch.index);
+            pAck->transport_mechanism = meshtastic_MeshPacket_TransportMechanism_TRANSPORT_MQTT;
+            router->sendLocal(pAck);
+        } else {
             LOG_INFO("Ignore downlink message we originally sent");
+        }
         return;
     }
     if (isFromUs(e.packet)) {
@@ -77,11 +104,6 @@ inline void onReceiveProto(char *topic, byte *payload, size_t length)
         return;
     }
 
-    // Find channel by channel_id and check downlink_enabled
-    if (!(strcmp(e.channel_id, "PKI") == 0 ||
-          (strcmp(e.channel_id, channels.getGlobalId(ch.index)) == 0 && ch.settings.downlink_enabled))) {
-        return;
-    }
     LOG_INFO("Received MQTT topic %s, len=%u", topic, length);
     if (e.packet->hop_limit > HOP_MAX || e.packet->hop_start > HOP_MAX) {
         LOG_INFO("Invalid hop_limit(%u) or hop_start(%u)", e.packet->hop_limit, e.packet->hop_start);
@@ -305,8 +327,10 @@ bool connectPubSub(const PubSubConfig &config, PubSubClient &pubSub, Client &cli
     std::string nodeId = nodeDB->getNodeId();
     const bool connected = pubSub.connect(nodeId.c_str(), config.mqttUsername, config.mqttPassword);
     if (connected) {
+        isConnected = true;
         LOG_INFO("MQTT connected");
     } else {
+        isConnected = false;
         LOG_WARN("Failed to connect to MQTT server");
     }
     return connected;
@@ -432,7 +456,9 @@ MQTT::MQTT() : concurrency::OSThread("mqtt"), mqttQueue(MAX_MQTT_QUEUE)
             enabled = true;
             runASAP = true;
             reconnectCount = 0;
+#if !IS_RUNNING_TESTS
             publishNodeInfo();
+#endif
         }
         // preflightSleepObserver.observe(&preflightSleep);
     } else {
@@ -454,8 +480,10 @@ bool MQTT::publish(const char *topic, const char *payload, bool retained)
     if (moduleConfig.mqtt.proxy_to_client_enabled) {
         meshtastic_MqttClientProxyMessage *msg = mqttClientProxyMessagePool.allocZeroed();
         msg->which_payload_variant = meshtastic_MqttClientProxyMessage_text_tag;
-        strcpy(msg->topic, topic);
-        strcpy(msg->payload_variant.text, payload);
+        strncpy(msg->topic, topic, sizeof(msg->topic));
+        msg->topic[sizeof(msg->topic) - 1] = '\0';
+        strncpy(msg->payload_variant.text, payload, sizeof(msg->payload_variant.text));
+        msg->payload_variant.text[sizeof(msg->payload_variant.text) - 1] = '\0';
         msg->retained = retained;
         service->sendMqttMessageToClientProxy(msg);
         return true;
@@ -473,7 +501,8 @@ bool MQTT::publish(const char *topic, const uint8_t *payload, size_t length, boo
     if (moduleConfig.mqtt.proxy_to_client_enabled) {
         meshtastic_MqttClientProxyMessage *msg = mqttClientProxyMessagePool.allocZeroed();
         msg->which_payload_variant = meshtastic_MqttClientProxyMessage_data_tag;
-        strlcpy(msg->topic, topic, sizeof(msg->topic));
+        strncpy(msg->topic, topic, sizeof(msg->topic));
+        msg->topic[sizeof(msg->topic) - 1] = '\0'; // Ensure null termination
         if (length > sizeof(msg->payload_variant.data.bytes))
             length = sizeof(msg->payload_variant.data.bytes);
         msg->payload_variant.data.size = length;
@@ -492,6 +521,7 @@ bool MQTT::publish(const char *topic, const uint8_t *payload, size_t length, boo
 
 void MQTT::reconnect()
 {
+    isConnected = false;
     if (wantsLink()) {
         if (moduleConfig.mqtt.proxy_to_client_enabled) {
             LOG_INFO("MQTT connect via client proxy instead");
@@ -519,7 +549,7 @@ void MQTT::reconnect()
             runASAP = true;
             reconnectCount = 0;
             isMqttServerAddressPrivate = isPrivateIpAddress(clientConnection->remoteIP());
-
+            isConnected = true;
             publishNodeInfo();
             sendSubscriptions();
         } else {
@@ -676,6 +706,9 @@ void MQTT::publishQueuedMessages()
     if (mqttQueue.isEmpty())
         return;
 
+    if (!moduleConfig.mqtt.proxy_to_client_enabled && !isConnected)
+        return;
+
     LOG_DEBUG("Publish enqueued MQTT message");
     const std::unique_ptr<QueueEntry> entry(mqttQueue.dequeuePtr(0));
     LOG_INFO("publish %s, %u bytes from queue", entry->topic.c_str(), entry->envBytes.size());
@@ -726,10 +759,8 @@ void MQTT::onSend(const meshtastic_MeshPacket &mp_encrypted, const meshtastic_Me
     if (mp_decoded.which_payload_variant == meshtastic_MeshPacket_decoded_tag) {
         // For uplinking other's packets, check if it's not OK to MQTT or if it's an older packet without the bitfield
         bool dontUplink = !mp_decoded.decoded.has_bitfield || !(mp_decoded.decoded.bitfield & BITFIELD_OK_TO_MQTT_MASK);
-        // check for the lowest bit of the data bitfield set false, and the use of one of the default keys.
-        if (!isFromUs(&mp_decoded) && !isMqttServerAddressPrivate && dontUplink &&
-            (ch.settings.psk.size < 2 || (ch.settings.psk.size == 16 && memcmp(ch.settings.psk.bytes, defaultpsk, 16)) ||
-             (ch.settings.psk.size == 32 && memcmp(ch.settings.psk.bytes, eventpsk, 32)))) {
+        // Respect the DontMqttMeBro flag for other nodes' packets on public MQTT servers
+        if (!isFromUs(&mp_decoded) && !isMqttServerAddressPrivate && dontUplink) {
             LOG_INFO("MQTT onSend - Not forwarding packet due to DontMqttMeBro flag");
             return;
         }
@@ -819,12 +850,14 @@ void MQTT::perhapsReportToMap()
         map_position_precision = default_map_position_precision;
     }
 
-    if (Throttle::isWithinTimespanMs(last_report_to_map, map_publish_interval_msecs))
+    if (Throttle::isWithinTimespanMs(last_report_to_map, map_publish_interval_msecs) && last_report_to_map != 0)
         return;
 
     if (localPosition.latitude_i == 0 && localPosition.longitude_i == 0) {
-        last_report_to_map = millis();
-        LOG_WARN("MQTT Map report enabled, but no position available");
+        if (Throttle::isWithinTimespanMs(lastPositionUnavailableWarning, POSITION_UNAVAILABLE_WARNING_INTERVAL_MS) == false) {
+            LOG_WARN("MQTT Map report enabled, but no position available");
+            lastPositionUnavailableWarning = millis();
+        }
         return;
     }
 

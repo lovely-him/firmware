@@ -289,12 +289,7 @@ void RadioLibInterface::onNotify(uint32_t notification)
                         // actual transmission as short as possible
                         txp = txQueue.dequeue();
                         assert(txp);
-                        bool sent = startSend(txp);
-                        if (sent) {
-                            // Packet has been sent, count it toward our TX airtime utilization.
-                            uint32_t xmitMsec = getPacketTime(txp);
-                            airTime->logAirtime(TX_LOG, xmitMsec);
-                        }
+                        startSend(txp);
                         LOG_DEBUG("%d packets remain in the TX queue", txQueue.getMaxLen() - txQueue.getFree());
                     }
                 }
@@ -413,6 +408,10 @@ void RadioLibInterface::completeSending()
     sendingPacket = NULL;
 
     if (p) {
+        // Packet has been sent, count it toward our TX airtime utilization.
+        uint32_t xmitMsec = getPacketTime(p);
+        airTime->logAirtime(TX_LOG, xmitMsec);
+
         txGood++;
         if (!isFromUs(p))
             txRelay++;
@@ -454,8 +453,11 @@ void RadioLibInterface::handleReceiveInterrupt()
     }
 #endif
     if (state != RADIOLIB_ERR_NONE) {
-        LOG_ERROR("Ignore received packet due to error=%d (maybe to=0x%08x, from=0x%08x, flags=0x%02x)", state,
-                  radioBuffer.header.to, radioBuffer.header.from, radioBuffer.header.flags);
+        // Log PacketHeader similar to RadioInterface::printPacket so we can try to match RX errors to other packets in the logs.
+        LOG_ERROR("Ignore received packet due to error=%d (maybe id=0x%08x fr=0x%08x to=0x%08x flags=0x%02x rxSNR=%g rxRSSI=%i "
+                  "nextHop=0x%x relay=0x%x)",
+                  state, radioBuffer.header.id, radioBuffer.header.from, radioBuffer.header.to, radioBuffer.header.flags,
+                  iface->getSNR(), lround(iface->getRSSI()), radioBuffer.header.next_hop, radioBuffer.header.relay_node);
         rxBad++;
 
         airTime->logAirtime(RX_ALL_LOG, rxMsec);
@@ -517,6 +519,27 @@ void RadioLibInterface::startReceive()
 {
     isReceiving = true;
     powerMon->setState(meshtastic_PowerMon_State_Lora_RXOn);
+}
+
+void RadioLibInterface::pollMissedIrqs()
+{
+    // RadioLibInterface::enableInterrupt uses EDGE-TRIGGERED interrupts. Poll as a backup to catch missed edges.
+    if (isReceiving) {
+        checkRxDoneIrqFlag();
+    }
+}
+
+void RadioLibInterface::resetAGC()
+{
+    // Base implementation: no-op. Override in chip-specific subclasses.
+}
+
+void RadioLibInterface::checkRxDoneIrqFlag()
+{
+    if (iface->checkIrq(RADIOLIB_IRQ_RX_DONE)) {
+        LOG_WARN("caught missed RX_DONE");
+        notify(ISR_RX, true);
+    }
 }
 
 void RadioLibInterface::configHardwareForSend()
