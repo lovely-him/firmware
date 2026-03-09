@@ -56,6 +56,7 @@
 
 ```bash
 pio run -e touch_lcd_2_sx1262_l76k
+pio run -e touch_lcd_2_sx1262_l76k --target upload --target monitor
 ```
 
 ## 参考变体

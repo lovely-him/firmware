@@ -16,6 +16,7 @@
 #define I2C_SCL 47                          // I2C时钟线
 
 // ST7789 TFT LCD配置 (2寸 240x320)
+#define USE_TFTDISPLAY 1                    // 启用TFT显示屏支持
 // #define HAS_TFT                          // 用于开启某些功能, 不可以开启,
 // #define USE_ST7789                       // 用于开启某些功能, 不可以开启,
 // #define VTFT_LEDA (1)                    // 背光控制引脚, 上面宏定义用得到的, 不要开启
