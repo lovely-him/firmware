@@ -488,7 +488,7 @@ class LGFX : public lgfx::LGFX_Device
 #if defined(T_WATCH_S3) || defined(ELECROW)
     lgfx::Touch_FT5x06 _touch_instance;
 #elif defined(TOUCH_LCD_2_SX1262_L76K)
-    lgfx::Touch_CST816S _touch_instance;  // CST816D兼容CST816S驱动
+    lgfx::Touch_CST816S _touch_instance; // CST816D兼容CST816S驱动
 #elif defined(HELTEC_V4_TFT)
     lgfx::TOUCH_CHSC6X _touch_instance;
 #else

@@ -1,39 +1,39 @@
 #ifndef Pins_Arduino_h
 #define Pins_Arduino_h
 
-#include <stdint.h>
 #include "soc/soc_caps.h"
+#include <stdint.h>
 
 // =============================================================================
-// Touch_LCD_2_SX1262_L76K ESP32-S3 开发板 Arduino 标准引脚映射
+// Touch_LCD_2_SX1262_L76K ESP32-S3 Arduino Standard Pin Mapping
 // =============================================================================
-// 此文件定义 Arduino 框架需要的标准引脚名称
-// 硬件特定配置请参考 variant.h 文件
+// This file defines the standard pin names required by the Arduino framework.
+// For hardware-specific configuration, refer to variant.h.
 // =============================================================================
 
-// ==== USB 配置 ====
+// ==== USB Configuration ====
 #define USB_VID 0x303a
 #define USB_PID 0x1001
 
-// ==== LED 配置 ====
-// 注意: 本开发板没有连接 LED
+// ==== LED Configuration ====
+// Note: No LED is connected on this board
 // #define LED_BUILTIN -1
 
-// ==== 串口配置 (默认连接 gps 模块) ====
-static const uint8_t TX = 9;                          // 默认串口 TX 引脚
-static const uint8_t RX = 14;                         // 默认串口 RX 引脚
+// ==== UART Configuration (connected to GPS module by default) ====
+static const uint8_t TX = 9;  // Default UART TX pin
+static const uint8_t RX = 14; // Default UART RX pin
 
-// ==== I2C 配置 (默认所有 i2c 设备共用) ====
-static const uint8_t SDA = 48;                        // I2C 数据线
-static const uint8_t SCL = 47;                        // I2C 时钟线
+// ==== I2C Configuration (shared by all I2C devices) ====
+static const uint8_t SDA = 48; // I2C data line
+static const uint8_t SCL = 47; // I2C clock line
 
-// ==== SPI 配置 (默认连接到 lora 模块) ====
-static const uint8_t SS = 18;                         // SPI 片选引脚
-static const uint8_t MOSI = 7;                        // SPI MOSI 数据引脚
-static const uint8_t MISO = 10;                       // SPI MISO 数据引脚
-static const uint8_t SCK = 8;                         // SPI 时钟引脚
+// ==== SPI Configuration (connected to LoRa module by default) ====
+static const uint8_t SS = 18;   // SPI chip select pin
+static const uint8_t MOSI = 7;  // SPI MOSI data pin
+static const uint8_t MISO = 10; // SPI MISO data pin
+static const uint8_t SCK = 8;   // SPI clock pin
 
-// ==== 模拟输入引脚映射 ====
+// ==== Analog Input Pin Mapping ====
 static const uint8_t A0 = 1;
 static const uint8_t A1 = 2;
 static const uint8_t A2 = 3;
@@ -55,7 +55,7 @@ static const uint8_t A17 = 18;
 static const uint8_t A18 = 19;
 static const uint8_t A19 = 20;
 
-// ==== 触摸输入引脚映射 ====
+// ==== Capacitive Touch Input Pin Mapping ====
 static const uint8_t T1 = 1;
 static const uint8_t T2 = 2;
 static const uint8_t T3 = 3;
