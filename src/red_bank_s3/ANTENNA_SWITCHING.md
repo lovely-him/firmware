@@ -15,6 +15,7 @@ Meshtastic固件现在支持根据LoRa区域配置自动切换天线。当用户
 ## 支持的频率分组
 
 ### 432MHz天线组
+
 - 中国 (CN): 470-510MHz
 - 欧盟433MHz (EU_433): 433-434MHz
 - 乌克兰433MHz (UA_433): 433-434.7MHz
@@ -22,6 +23,7 @@ Meshtastic固件现在支持根据LoRa区域配置自动切换天线。当用户
 - 菲律宾433MHz (PH_433): 433-434.7MHz
 
 ### 900MHz天线组
+
 - 美国 (US): 902-928MHz
 - 澳大利亚/新西兰 (ANZ): 915-928MHz
 - 日本 (JP): 920.5-923.5MHz
@@ -41,11 +43,13 @@ Meshtastic固件现在支持根据LoRa区域配置自动切换天线。当用户
 ## 硬件要求
 
 ### 基本要求
+
 - 支持双天线切换的硬件设计
 - 两个独立的GPIO引脚用于天线控制
 - 天线切换开关（继电器或RF开关）
 
 ### 引脚定义
+
 在您的硬件变体文件中定义以下引脚：
 
 ```cpp
@@ -54,6 +58,7 @@ Meshtastic固件现在支持根据LoRa区域配置自动切换天线。当用户
 ```
 
 ### 硬件连接建议
+
 1. **天线切换开关**：使用高质量的RF开关或继电器
 2. **隔离设计**：确保两个天线之间不会产生干扰
 3. **LED指示**：可选添加LED指示当前使用的天线
@@ -62,11 +67,13 @@ Meshtastic固件现在支持根据LoRa区域配置自动切换天线。当用户
 ## 使用方法
 
 ### 1. 硬件配置
+
 1. 将示例变体文件复制到您的硬件目录
 2. 根据实际硬件修改引脚定义
 3. 编译时选择相应的变体
 
 ### 2. 软件配置
+
 天线切换功能已集成到固件中，无需额外配置。当用户通过手机App更改LoRa区域时，系统会自动：
 
 1. 检测区域变化
@@ -75,6 +82,7 @@ Meshtastic固件现在支持根据LoRa区域配置自动切换天线。当用户
 4. 发送通知给用户
 
 ### 3. 用户操作
+
 1. 打开Meshtastic手机App
 2. 进入设备设置
 3. 更改LoRa区域设置
@@ -83,6 +91,7 @@ Meshtastic固件现在支持根据LoRa区域配置自动切换天线。当用户
 ## 代码结构
 
 ### 核心文件
+
 - `src/AntennaManager.h` - 天线管理器头文件
 - `src/AntennaManager.cpp` - 天线管理器实现
 - `src/modules/AdminModule.cpp` - 配置更改处理
@@ -91,6 +100,7 @@ Meshtastic固件现在支持根据LoRa区域配置自动切换天线。当用户
 ### 主要类和方法
 
 #### AntennaManager类
+
 ```cpp
 class AntennaManager {
 public:
@@ -102,6 +112,7 @@ public:
 ```
 
 #### 配置处理流程
+
 1. `AdminModule::handleSetConfig()` 接收配置更改
 2. 调用 `AntennaManager::switchAntennaForRegion()` 处理天线切换
 3. 根据区域类型控制相应的GPIO引脚
@@ -128,6 +139,7 @@ public:
 ### 调试方法
 
 1. **查看日志**
+
    ```
    LOG_INFO("Switching antenna: old region=%d, new region=%d", oldRegion, newRegion);
    LOG_INFO("Switching to 432MHz antenna");
@@ -135,6 +147,7 @@ public:
    ```
 
 2. **测试引脚**
+
    ```cpp
    // 手动测试天线切换
    digitalWrite(ANTENNA_432_PIN, HIGH);
@@ -150,6 +163,7 @@ public:
 ## 扩展功能
 
 ### 自定义天线配置
+
 您可以修改 `AntennaManager.cpp` 中的区域映射来支持自定义天线配置：
 
 ```cpp
@@ -159,6 +173,7 @@ case meshtastic_Config_LoRaConfig_RegionCode_CUSTOM:
 ```
 
 ### 多天线支持
+
 对于支持更多天线的硬件，可以扩展天线管理器：
 
 ```cpp
@@ -167,6 +182,7 @@ case meshtastic_Config_LoRaConfig_RegionCode_CUSTOM:
 ```
 
 ### 自动测试功能
+
 可以添加天线自动测试功能：
 
 ```cpp
@@ -174,7 +190,7 @@ void AntennaManager::testAntennas() {
     // 测试432MHz天线
     switchTo432MHzAntenna();
     delay(1000);
-    
+
     // 测试900MHz天线
     switchTo900MHzAntenna();
     delay(1000);
@@ -198,4 +214,4 @@ void AntennaManager::testAntennas() {
 
 ## 许可证
 
-此功能遵循Meshtastic项目的开源许可证。 
+此功能遵循Meshtastic项目的开源许可证。

@@ -11,6 +11,7 @@
 ## 引脚分配
 
 ### ST7789 TFT LCD (SPI接口)
+
 - CS (片选): GPIO45
 - DC (数据/命令): GPIO42
 - MOSI: GPIO38
@@ -20,6 +21,7 @@
 - BL (背光): GPIO1
 
 ### CST816D 触摸屏 (I2C接口)
+
 - SDA: GPIO48
 - SCL: GPIO47
 - INT (中断): GPIO46
@@ -28,6 +30,7 @@
 - **注意**: 已在TFTDisplay.cpp中配置使用lgfx::Touch_CST816S类
 
 ### SX1262 LoRa模块 (SPI接口)
+
 - CS (NSS): GPIO18
 - MOSI: GPIO7
 - SCK: GPIO8
@@ -38,6 +41,7 @@
 - CTRL (天线使能): GPIO6
 
 ### L76K GPS模块 (UART接口)
+
 - TX: GPIO9 (连接到GPS RX)
 - RX: GPIO14 (连接到GPS TX)
 - RST: GPIO5
@@ -45,6 +49,7 @@
 - EN: 未连接
 
 ### 其他引脚
+
 - 用户按钮: GPIO0
 - LED指示: 未连接
 - 电池检测: GPIO5
@@ -61,6 +66,7 @@ pio run -e touch_lcd_2_sx1262_l76k
 ## 参考变体
 
 本配置参考了以下现有变体:
+
 - `variants/esp32s3/t-deck/` - ST7789 TFT配置 (编译失败)
 - `variants/esp32s3/heltec_vision_master_t190/` - ST7789 TFT配置 (编译成功)
 - `variants/esp32s3/t-watch-s3/` - ST7789 TFT配置 (运行成功)
@@ -100,8 +106,6 @@ class LGFX : public lgfx::LGFX_Device
 }
 // ...
 ```
-
-
 
 ## 功能特性
 
