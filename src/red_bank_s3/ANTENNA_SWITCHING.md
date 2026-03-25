@@ -140,7 +140,7 @@ public:
 
 1. **查看日志**
 
-   ```
+   ```cpp
    LOG_INFO("Switching antenna: old region=%d, new region=%d", oldRegion, newRegion);
    LOG_INFO("Switching to 432MHz antenna");
    LOG_INFO("Switching to 900MHz antenna");
