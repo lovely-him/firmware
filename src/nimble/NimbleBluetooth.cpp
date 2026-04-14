@@ -732,6 +732,8 @@ class NimbleBluetoothServerCallback : public NimBLEServerCallbacks
         ble->startAdvertising();
 #else
         NimBLEAdvertising *pAdvertising = NimBLEDevice::getAdvertising();
+        pAdvertising->setMinInterval(160); // 100ms (unit: 0.625ms)
+        pAdvertising->setMaxInterval(320); // 200ms
         if (!pAdvertising->start(0)) {
             if (pAdvertising->isAdvertising()) {
                 LOG_DEBUG("BLE advertising already running");
@@ -954,6 +956,8 @@ void NimbleBluetooth::startAdvertising()
     pAdvertising->reset();
     pAdvertising->addServiceUUID(MESH_SERVICE_UUID);
     pAdvertising->addServiceUUID(NimBLEUUID((uint16_t)0x180f)); // 0x180F is the Battery Service
+    pAdvertising->setMinInterval(160);                          // 100ms (unit: 0.625ms)
+    pAdvertising->setMaxInterval(320);                          // 200ms
     pAdvertising->start(0);
 #endif
 }

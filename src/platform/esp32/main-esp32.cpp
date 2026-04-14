@@ -46,6 +46,8 @@ void setBluetoothEnable(bool enable)
         if (enable && !nimbleBluetooth->isActive()) {
             powerMon->setState(meshtastic_PowerMon_State_BT_On);
             nimbleBluetooth->setup();
+            // Now BLE advertising is active, safe to enable auto light-sleep
+            enableLightSleep();
         }
         // For ESP32, no way to recover from bluetooth shutdown without reboot
         // BLE advertising automatically stops when MCU enters light-sleep(?)
@@ -158,7 +160,7 @@ void esp32Setup()
     MeshtasticOTA::initialize();
 #endif
 
-    // enableModemSleep();
+    enableModemSleep(); // [#8876](https://github.com/meshtastic/firmware/issues/8876)
 
 // Since we are turning on watchdogs rather late in the release schedule, we really don't want to catch any
 // false positives.  The wait-to-sleep timeout for shutting down radios is 30 secs, so pick 45 for now.

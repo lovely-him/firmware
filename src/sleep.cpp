@@ -26,6 +26,7 @@
 #endif
 #include "rom/rtc.h"
 #include <RadioLib.h>
+#include <driver/gpio.h>
 #include <driver/rtc_io.h>
 #include <driver/uart.h>
 
@@ -537,10 +538,61 @@ void enableModemSleep()
 #else
     esp32_config.max_freq_mhz = CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ;
 #endif
-    esp32_config.min_freq_mhz = 20; // 10Mhz is minimum recommended
-    esp32_config.light_sleep_enable = false;
+    esp32_config.min_freq_mhz = 20;          // 10Mhz is minimum recommended
+    esp32_config.light_sleep_enable = false; // DFS only; light sleep deferred to enableLightSleep()
     int rv = esp_pm_configure(&esp32_config);
     LOG_DEBUG("Sleep request result %x", rv);
+#if defined(CONFIG_PM_ENABLE)
+    esp_pm_dump_locks(stdout);
+#endif
+}
+
+/**
+ * Enable auto light-sleep. Must be called AFTER BLE is initialized so that
+ * BLE advertising provides periodic wakeup events. Calling earlier causes
+ * the system to sleep permanently with no wakeup source.
+ *
+ * IDF v4.4 bug workaround: uart_set_pin() does not call gpio_sleep_sel_dis()
+ * on UART TX/RX pins, so the console becomes unresponsive during light sleep.
+ * We manually exclude UART0 pins from sleep isolation. Fixed in IDF v5.0+.
+ */
+void enableLightSleep()
+{
+#if defined(CONFIG_PM_ENABLE)
+    static bool enabled = false;
+    if (enabled)
+        return;
+    enabled = true;
+
+#if ESP_ARDUINO_VERSION >= ESP_ARDUINO_VERSION_VAL(3, 0, 0)
+    esp_pm_config_t pm_config = {};
+#else
+    esp_pm_config_esp32_t pm_config = {};
+#endif
+#if CONFIG_IDF_TARGET_ESP32S3
+    pm_config.max_freq_mhz = CONFIG_ESP32S3_DEFAULT_CPU_FREQ_MHZ;
+#elif CONFIG_IDF_TARGET_ESP32S2
+    pm_config.max_freq_mhz = CONFIG_ESP32S2_DEFAULT_CPU_FREQ_MHZ;
+#elif CONFIG_IDF_TARGET_ESP32C6
+    pm_config.max_freq_mhz = CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ;
+#elif CONFIG_IDF_TARGET_ESP32C3
+    pm_config.max_freq_mhz = CONFIG_ESP32C3_DEFAULT_CPU_FREQ_MHZ;
+#else
+    pm_config.max_freq_mhz = CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ;
+#endif
+    pm_config.min_freq_mhz = 20;
+    pm_config.light_sleep_enable = true;
+    int rv = esp_pm_configure(&pm_config);
+    LOG_DEBUG("Light sleep enable result %x", rv);
+
+    // IDF v4.4: UART driver bug — exclude UART0 TX/RX from GPIO sleep isolation
+#if ESP_ARDUINO_VERSION < ESP_ARDUINO_VERSION_VAL(3, 0, 0) && CONFIG_IDF_TARGET_ESP32S3
+    gpio_sleep_sel_dis(GPIO_NUM_43); // UART0 TX
+    gpio_sleep_sel_dis(GPIO_NUM_44); // UART0 RX
+#endif
+
+    esp_pm_dump_locks(stdout);
+#endif // CONFIG_PM_ENABLE
 }
 
 bool shouldLoraWake(uint32_t msecToWake)

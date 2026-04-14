@@ -26,6 +26,14 @@ class PowerFSMThread : public OSThread
         const State *state = powerFSM.getState();
         canSleep = (state != &statePOWER) && (state != &stateSERIAL);
 
+#ifdef DEBUG_LOOP_TIMING
+        static const char *lastStateName = nullptr;
+        if (state->name != lastStateName) {
+            LOG_INFO("PowerFSM state: %s -> %s, canSleep=%d", lastStateName ? lastStateName : "(init)", state->name, canSleep);
+            lastStateName = state->name;
+        }
+#endif
+
         if (powerStatus->getHasUSB()) {
             timeLastPowered = millis();
         } else if (config.power.on_battery_shutdown_after_secs > 0 && config.power.on_battery_shutdown_after_secs != UINT32_MAX &&
