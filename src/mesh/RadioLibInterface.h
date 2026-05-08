@@ -153,6 +153,22 @@ class RadioLibInterface : public RadioInterface, protected concurrency::Notified
      */
     virtual void startReceive();
 
+#if defined(EINK_RA01S_GP02)
+    /**
+     * Re-enable this interface after disable().
+     *
+     * Clears the disabled flag and performs a full hardware re-initialization
+     * via virtual init(). For boards that cut SPI power in sleep(), the
+     * chip-specific init() is responsible for calling SPI.begin() and
+     * re-running lora.begin() before startReceive().
+     */
+    void enable()
+    {
+        disabled = false;
+        init(); // virtual dispatch → SX126xInterface::init(): power-on + lora.begin() + startReceive()
+    }
+#endif // EINK_RA01S_GP02
+
     /** can we detect a LoRa preamble on the current channel? */
     virtual bool isChannelActive() = 0;
 

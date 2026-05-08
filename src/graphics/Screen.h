@@ -690,6 +690,9 @@ class Screen : public concurrency::OSThread
     struct FramesetInfo {
         struct FramePositions {
             uint8_t fault = 255;
+#if defined(EINK_RA01S_GP02)
+            uint8_t animation = 255;
+#endif // EINK_RA01S_GP02
             uint8_t waypoint = 255;
             uint8_t focusedModule = 255;
             uint8_t log = 255;

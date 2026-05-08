@@ -1396,7 +1396,12 @@ void UIRenderer::drawOEMBootScreen(OLEDDisplay *display, OLEDDisplayUiState *sta
 // Navigation bar overlay implementation
 static int8_t lastFrameIndex = -1;
 static uint32_t lastFrameChangeTime = 0;
+
+#if defined(EINK_RA01S_GP02) && defined(EINK_NAVBAR_DURATION_MS)
+constexpr uint32_t ICON_DISPLAY_DURATION_MS = EINK_NAVBAR_DURATION_MS;
+#else
 constexpr uint32_t ICON_DISPLAY_DURATION_MS = 2000;
+#endif // EINK_RA01S_GP02
 
 // cppcheck-suppress constParameterPointer; signature must match OverlayCallback typedef from OLEDDisplayUi library
 void UIRenderer::drawNavigationBar(OLEDDisplay *display, OLEDDisplayUiState *state)

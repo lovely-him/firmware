@@ -51,7 +51,11 @@ extern XPowersPPM *PPM;
 Observable<void *> preflightSleep;
 
 /// Called to tell observers we are now entering (deep) sleep and you should prepare.  Must return 0
+#if !defined(EINK_RA01S_GP02)
 Observable<void *> notifyDeepSleep;
+#else
+Observable<void *> notifyDeepSleep("notifyDeepSleep");
+#endif // EINK_RA01S_GP02
 
 /// Called to tell observers we are rebooting ASAP.  Must return 0
 Observable<void *> notifyReboot;
@@ -208,6 +212,9 @@ static void waitEnterSleep(bool skipPreflight = false)
 
 void doDeepSleep(uint32_t msecToWake, bool skipPreflight = false, bool skipSaveNodeDb = false)
 {
+#if defined(EINK_RA01S_GP02) && defined(SHUTDOWN_HALT_AT)
+    SHUTDOWN_HALT_AT(0); // Step 1: BT advertising stopped (waitEnterSleep → setBluetoothEnable(false))
+#endif                   // EINK_RA01S_GP02
     if (INCLUDE_vTaskSuspend && (msecToWake == portMAX_DELAY)) {
         LOG_INFO("Enter deep sleep forever");
     } else {
@@ -217,6 +224,9 @@ void doDeepSleep(uint32_t msecToWake, bool skipPreflight = false, bool skipSaveN
     // not using wifi yet, but once we are this is needed to shutoff the radio hw
     // esp_wifi_stop();
     waitEnterSleep(skipPreflight);
+#if defined(EINK_RA01S_GP02) && defined(SHUTDOWN_HALT_AT)
+    SHUTDOWN_HALT_AT(1); // Step 1: BT advertising stopped (waitEnterSleep → setBluetoothEnable(false))
+#endif                   // EINK_RA01S_GP02
 
 #if defined(ARCH_ESP32) && !MESHTASTIC_EXCLUDE_BLUETOOTH
     // Full shutdown of bluetooth hardware
@@ -230,10 +240,16 @@ void doDeepSleep(uint32_t msecToWake, bool skipPreflight = false, bool skipSaveN
 #else
     notifyDeepSleep.notifyObservers(NULL);
 #endif
+#if defined(EINK_RA01S_GP02) && defined(SHUTDOWN_HALT_AT)
+    SHUTDOWN_HALT_AT(2); // Step 2: LoRa sleep + GPS LDO off (notifyDeepSleep observers returned)
+#endif                   // EINK_RA01S_GP02
 
     powerMon->setState(meshtastic_PowerMon_State_CPU_DeepSleep);
     if (screen)
         screen->doDeepSleep(); // datasheet says this will draw only 10ua
+#if defined(EINK_RA01S_GP02) && defined(SHUTDOWN_HALT_AT)
+    SHUTDOWN_HALT_AT(3); // Step 3: eInk LDO off (screen->doDeepSleep() complete)
+#endif                   // EINK_RA01S_GP02
 
     if (!skipSaveNodeDb) {
         nodeDB->saveToDisk();

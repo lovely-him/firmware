@@ -18,6 +18,9 @@
 #include "main.h"
 #include "mesh/Default.h"
 #include "mesh/MeshTypes.h"
+#if defined(EINK_RA01S_GP02)
+#include "graphics/draw/AnimationRenderer.h"
+#endif // EINK_RA01S_GP02
 #include "modules/AdminModule.h"
 #include "modules/CannedMessageModule.h"
 #include "modules/ExternalNotificationModule.h"
@@ -1007,6 +1010,26 @@ void menuHandler::textMessageMenu()
 {
     cannedMessageModule->LaunchWithDestination(NODENUM_BROADCAST);
 }
+#if defined(EINK_RA01S_GP02)
+void menuHandler::animationMenu()
+{
+    const uint8_t count = graphics::AnimationRenderer::getAnimCount();
+    // Build a static array of name pointers (max ANIM_COUNT animations).
+    static const char *optionsArray[32];
+    for (uint8_t i = 0; i < count && i < 32; i++)
+        optionsArray[i] = graphics::AnimationRenderer::getAnimName(i);
+
+    BannerOverlayOptions bannerOptions;
+    bannerOptions.message = "Select Animation";
+    bannerOptions.optionsArrayPtr = optionsArray;
+    bannerOptions.optionsCount = count;
+    bannerOptions.durationMs = 120000;
+    bannerOptions.bannerCallback = [](int selected) -> void {
+        graphics::AnimationRenderer::setAnimation(static_cast<uint8_t>(selected));
+    };
+    screen->showOverlayBanner(bannerOptions);
+}
+#endif // EINK_RA01S_GP02
 
 void menuHandler::textMessageBaseMenu()
 {

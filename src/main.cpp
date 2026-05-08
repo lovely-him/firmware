@@ -59,6 +59,13 @@ NimbleBluetooth *nimbleBluetooth = nullptr;
 NRF52Bluetooth *nrf52Bluetooth = nullptr;
 #endif
 
+#if defined(EINK_RA01S_GP02)
+#ifdef ARCH_NRF52
+#include <bluefruit.h>
+#endif
+#include "input/NavCombos.h"
+#endif // EINK_RA01S_GP02
+
 #if HAS_WIFI || defined(USE_WS5500)
 #include "mesh/api/WiFiServerAPI.h"
 #include "mesh/wifi/WiFiAPClient.h"
@@ -307,6 +314,45 @@ void printInfo()
 #ifndef PIO_UNIT_TESTING
 void setup()
 {
+#if defined(EINK_RA01S_GP02) && TEST_FREEZE_AT_BOOT
+    {
+        while (1) {
+            delay(60000);
+        }
+    }
+#endif // EINK_RA01S_GP02
+#if defined(EINK_RA01S_GP02) && TEST_PLAN_B_BLE_ADV
+    {
+        // 最小 BLE 初始化（SoftDevice 已由 Arduino 框架预先初始化）
+        Bluefruit.autoConnLed(false);
+        Bluefruit.configPrphBandwidth(BANDWIDTH_MAX);
+        Bluefruit.begin();
+        Bluefruit.setName("Mesh_test");
+
+        // 广播包：flags + name（最小载荷，与 NCS test #3 等价）
+        Bluefruit.Advertising.addFlags(BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE);
+        Bluefruit.Advertising.addName();
+
+        // 对标 NCS test #3：间隔 800-1600 × 0.625ms
+        //   BLE_ADV_FAST_INTERVAL = 800 (fast mode 间隔, = 500ms)
+        //   BLE_ADV_SLOW_INTERVAL = 1600 (slow mode 间隔, = 1000ms)
+        //   setFastTimeout(60): 在 fast mode 停留 60s，覆盖整个 30s 测试窗口
+        //   → 全程以 500ms 间隔广播，与 NCS min=800 匹配
+        Bluefruit.Advertising.setInterval(BLE_ADV_FAST_INTERVAL, BLE_ADV_SLOW_INTERVAL);
+        Bluefruit.Advertising.setFastTimeout(60);
+        Bluefruit.Advertising.restartOnDisconnect(false);
+        Bluefruit.Advertising.start(0); // 开始广播（不自动超时）
+
+        delay(30000); // Phase 1: 广播 30 秒
+
+        Bluefruit.Advertising.stop(); // 停止广播
+
+        // Phase 2: 无限低功耗休眠（期望回落至 ~34 µA 基线）
+        while (1) {
+            delay(60000);
+        }
+    }
+#endif // EINK_RA01S_GP02
 
     // initialize power HAL layer as early as possible
     powerHAL_init();
@@ -932,6 +978,12 @@ void setup()
         RECORD_CRITICALERROR(meshtastic_CriticalErrorCode_NO_AXP192); // Record a hardware fault for missing hardware
 #endif
 
+#if defined(EINK_RA01S_GP02) && MESHTASTIC_EXCLUDE_I2C && HAS_SCREEN && defined(USE_EINK)
+    // MESHTASTIC_EXCLUDE_I2C=1 prevents the USE_EINK branch above from running on I2C-less boards.
+    // SPI-only E-ink does not need I2C, so call setup() directly here.
+    if (screen)
+        screen->setup();
+#else
 #if !MESHTASTIC_EXCLUDE_I2C
 // Don't call screen setup until after nodedb is setup (because we need
 // the current region name)
@@ -950,6 +1002,7 @@ void setup()
         screen->setup();
 #endif
 #endif
+#endif // EINK_RA01S_GP02
 
     auto rIf = initLoRa();
 
@@ -1196,7 +1249,39 @@ void loop()
 #if HAS_SCREEN && ENABLE_MESSAGE_PERSISTENCE
     messageStoreAutosaveTick();
 #endif
+
+#if defined(EINK_RA01S_GP02) && defined(POWER_TEST_SLEEP_AFTER_BLE)
+    static bool powerTestFrozen = false;
+    if (!powerTestFrozen && millis() > POWER_TEST_SLEEP_AFTER_BLE) {
+        powerTestFrozen = true;
+        int count = mainController.size();
+        LOG_INFO("==========================================");
+        LOG_INFO("[CONFIG] is_power_saving=%d (loaded from flash; 1=forced by USE_POWERSAVE or App, 0=normal)",
+                 (int)config.power.is_power_saving);
+        LOG_INFO("[POWER_TEST] Suspending %d threads at %lu ms (window: %lu ms)", count, millis(),
+                 (unsigned long)POWER_TEST_MEASURE_WINDOW_MS);
+        for (int i = 0; i < count; i++) {
+            auto *t = static_cast<concurrency::OSThread *>(mainController.get(i));
+            if (t) {
+                LOG_INFO("[POWER_TEST]   [%2d] %-28s interval=%lu ms  enabled=%d", i, t->ThreadName.c_str(), t->getInterval(),
+                         (int)t->enabled);
+                t->setIntervalFromNow(POWER_TEST_MEASURE_WINDOW_MS);
+            }
+        }
+        LOG_INFO("[POWER_TEST] CPU sleeps for %lu ms — measure current now.", (unsigned long)POWER_TEST_MEASURE_WINDOW_MS);
+        LOG_INFO("==========================================");
+    }
+#endif // EINK_RA01S_GP02
+
     long delayMsec = mainController.runOrDelay();
+
+#if defined(EINK_RA01S_GP02) && defined(POWER_THROTTLE_MS)
+    // Re-clamp thread intervals after runOrDelay() lets threads reset themselves.
+    // Placed here (post-runOrDelay, pre-mainDelay) so each sleep cycle enforces
+    // the throttle floor — without this, threads would reset to their own short
+    // intervals and the throttle would only last one cycle.
+    navThrottleApply();
+#endif // EINK_RA01S_GP02
 
     // We want to sleep as long as possible here - because it saves power
     if (!runASAP && loopCanSleep()) {

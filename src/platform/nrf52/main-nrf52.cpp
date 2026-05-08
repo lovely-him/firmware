@@ -432,12 +432,18 @@ void cpuDeepSleep(uint32_t msecToWake)
 #if HAS_WIRE
     Wire.end();
 #endif
+#if defined(EINK_RA01S_GP02) && defined(SHUTDOWN_HALT_AT)
+    SHUTDOWN_HALT_AT(4); // Step 4: I2C TWIM disabled
+#endif                   // EINK_RA01S_GP02
     SPI.end();
 #if SPI_INTERFACES_COUNT > 1
     SPI1.end();
 #endif
-    if (Serial)       // Another check in case of disabled default serial, does nothing bad
-        Serial.end(); // This may cause crashes as debug messages continue to flow.
+#if defined(EINK_RA01S_GP02) && defined(SHUTDOWN_HALT_AT)
+    SHUTDOWN_HALT_AT(5); // Step 5: LoRa + eInk SPI buses disabled
+#endif                   // EINK_RA01S_GP02
+    if (Serial)          // Another check in case of disabled default serial, does nothing bad
+        Serial.end();    // This may cause crashes as debug messages continue to flow.
 
         // This causes troubles with waking up on nrf52 (on pro-micro in particular):
         // we have no Serial1 in use on nrf52, check Serial and GPS modules.
@@ -445,8 +451,14 @@ void cpuDeepSleep(uint32_t msecToWake)
     if (Serial1) // A straightforward solution to the wake from deepsleep problem
         Serial1.end();
 #endif
+#if defined(EINK_RA01S_GP02) && defined(SHUTDOWN_HALT_AT)
+    SHUTDOWN_HALT_AT(6); // Step 6: USB CDC + GPS UART disabled
+#endif                   // EINK_RA01S_GP02
 
     setBluetoothEnable(false);
+#if defined(EINK_RA01S_GP02) && defined(SHUTDOWN_HALT_AT)
+    SHUTDOWN_HALT_AT(7); // Step 7: BT shutdown (2nd call)
+#endif                   // EINK_RA01S_GP02
 
 #ifdef RAK4630
 #ifdef PIN_3V3_EN
@@ -459,6 +471,9 @@ void cpuDeepSleep(uint32_t msecToWake)
 #endif
     // Run shutdown code if specified in variant.cpp
     variant_shutdown();
+#if defined(EINK_RA01S_GP02) && defined(SHUTDOWN_HALT_AT)
+    SHUTDOWN_HALT_AT(8); // Step 8: all pins tristated, LDOs cut
+#endif                   // EINK_RA01S_GP02
 
     // Sleepy trackers or sensors can low power "sleep"
     // Don't enter this if we're sleeping portMAX_DELAY, since that's a shutdown event

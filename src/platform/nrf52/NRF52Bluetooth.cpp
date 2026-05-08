@@ -139,8 +139,13 @@ void startAdv(void)
      * https://developer.apple.com/library/content/qa/qa1931/_index.html
      */
     Bluefruit.Advertising.restartOnDisconnect(true);
-    Bluefruit.Advertising.setInterval(32, 668); // in unit of 0.625 ms
-    Bluefruit.Advertising.setFastTimeout(30);   // number of seconds in fast mode
+#if defined(EINK_RA01S_GP02) && defined(BLE_ADV_SLOW_INTERVAL) && defined(BLE_ADV_FAST_INTERVAL)
+    Bluefruit.Advertising.setInterval(BLE_ADV_FAST_INTERVAL, BLE_ADV_SLOW_INTERVAL); // unit 0.625 ms, from variant.h
+    Bluefruit.Advertising.setFastTimeout(BLE_ADV_FAST_TIMEOUT_S);
+#else
+    Bluefruit.Advertising.setInterval(32, 668);                               // in unit of 0.625 ms
+    Bluefruit.Advertising.setFastTimeout(30);                                 // number of seconds in fast mode
+#endif                              // EINK_RA01S_GP02
     Bluefruit.Advertising.start(0); // 0 = Don't stop advertising after n seconds.  FIXME, we should stop advertising after X
 }
 // Just ack that the caller is allowed to read
@@ -348,8 +353,13 @@ void NRF52Bluetooth::setup()
 void NRF52Bluetooth::resumeAdvertising()
 {
     Bluefruit.Advertising.restartOnDisconnect(true);
-    Bluefruit.Advertising.setInterval(32, 668); // in unit of 0.625 ms
-    Bluefruit.Advertising.setFastTimeout(30);   // number of seconds in fast mode
+#if defined(EINK_RA01S_GP02) && defined(BLE_ADV_SLOW_INTERVAL) && defined(BLE_ADV_FAST_INTERVAL)
+    Bluefruit.Advertising.setInterval(BLE_ADV_FAST_INTERVAL, BLE_ADV_SLOW_INTERVAL); // unit 0.625 ms, from variant.h
+    Bluefruit.Advertising.setFastTimeout(BLE_ADV_FAST_TIMEOUT_S);
+#else
+    Bluefruit.Advertising.setInterval(32, 668);                               // in unit of 0.625 ms
+    Bluefruit.Advertising.setFastTimeout(30);                                 // number of seconds in fast mode
+#endif // EINK_RA01S_GP02
     Bluefruit.Advertising.start(0);
 }
 /// Given a level between 0-100, update the BLE attribute

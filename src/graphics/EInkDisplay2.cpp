@@ -89,6 +89,9 @@ bool EInkDisplay::forceDisplay(uint32_t msecLimit)
         }
     }
 #endif
+#if defined(EINK_RA01S_GP02)
+    digitalWrite(LED_EINK_ACTIVITY, LED_STATE_ON);
+#endif // EINK_RA01S_GP02
 
     // Trigger the refresh in GxEPD2
     LOG_DEBUG("Update E-Paper");
@@ -97,6 +100,9 @@ bool EInkDisplay::forceDisplay(uint32_t msecLimit)
     // End the update process
     endUpdate();
 
+#if defined(EINK_RA01S_GP02)
+    digitalWrite(LED_EINK_ACTIVITY, LED_STATE_OFF);
+#endif // EINK_RA01S_GP02
     LOG_DEBUG("done");
     return true;
 }
@@ -290,9 +296,57 @@ bool EInkDisplay::connect()
     adafruitDisplay->init();
     adafruitDisplay->setRotation(3);
 
+#elif defined(EINK_RA01S_GP02)
+    {
+        // Panel power MUST be HIGH before SPI1.begin() and GxEPD2 init.
+        // The PIN_EINK_EN block above set EN LOW (default #else path);
+        // override it here before touching the SPI bus.
+        LOG_INFO("EINK_RA01S_GP02: enabling panel power");
+        digitalWrite(PIN_EINK_EN, HIGH);
+        delay(50); // Allow display module power rail to stabilize (raised from 10ms)
+
+        // SPI1 is constructed by the framework using PIN_SPI1_SCK/MOSI/MISO
+        // defined in display_eink.h. begin() configures the SPIM peripheral.
+        LOG_INFO("EINK_RA01S_GP02: SPI1.begin()");
+        SPI1.begin();
+
+        LOG_INFO("EINK_RA01S_GP02: creating GxEPD2_213_B74 (CS=%d DC=%d RST=%d BUSY=%d)", PIN_EINK_CS, PIN_EINK_DC, PIN_EINK_RES,
+                 PIN_EINK_BUSY);
+        auto lowLevel = new EINK_DISPLAY_MODEL(PIN_EINK_CS, PIN_EINK_DC, PIN_EINK_RES, PIN_EINK_BUSY, SPI1);
+        adafruitDisplay = new GxEPD2_BW<EINK_DISPLAY_MODEL, EINK_DISPLAY_MODEL::HEIGHT>(*lowLevel);
+        LOG_INFO("EINK_RA01S_GP02: adafruitDisplay->init() — HW reset + SSD1680 init (OTP LUT)");
+        adafruitDisplay->init(0, true, 10, false); // serial_diag_bitrate=0 avoids re-initing Serial
+        LOG_INFO("EINK_RA01S_GP02: init done; setRotation(%d) setPartialWindow(0,0,%d,%d)", EINK_ROTATION, EINK_WIDTH,
+                 EINK_HEIGHT);
+        adafruitDisplay->setRotation(EINK_ROTATION);
+        // Use full-window mode here; EInkDynamicDisplay::checkInitialized() will
+        // issue a proper clearScreen() + switch to the right mode on first frame.
+        adafruitDisplay->setFullWindow();
+        LOG_INFO("EINK_RA01S_GP02: connect() complete");
+    }
 #endif
 
     return true;
 }
 
+#if defined(EINK_RA01S_GP02)
+// Re-initialize SPI1 bus and SSD1680 hardware after a panel power cycle.
+// Called by Screen.cpp after EN is restored HIGH following a screen-off sequence.
+// SSD1680 loses all register state when powered off, so a full hardware init
+// (SWRESET + register sequence) is required before the next display update.
+void EInkDisplay::reinitAfterPowerOn()
+{
+    LOG_DEBUG("EINK_RA01S_GP02: reinitAfterPowerOn — SPI1 restart + SSD1680 re-init");
+    SPI1.begin();
+    // SSD1680 has completed POR; run full register initialization sequence.
+    // Parameters match connect(): no serial diagnostics, hard reset, 10ms reset pulse, no partial reset.
+    adafruitDisplay->init(0, true, 10, false);
+    adafruitDisplay->setRotation(EINK_ROTATION);
+    adafruitDisplay->setFullWindow();
+    // adafruitDisplay->nextPage();
+    // Reset rate-limiter so the next forceDisplay() renders immediately without waiting.
+    lastDrawMsec = 0;
+    LOG_DEBUG("EINK_RA01S_GP02: reinitAfterPowerOn done");
+}
+#endif // EINK_RA01S_GP02
 #endif

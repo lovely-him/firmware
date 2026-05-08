@@ -29,6 +29,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #if HAS_SCREEN
 #include "EInkParallelDisplay.h"
 #include <OLEDDisplay.h>
+#if defined(EINK_RA01S_GP02)
+#include "EInkDisplay2.h" // for EInkDisplay::reinitAfterPowerOn()
+#include "PowerFSM.h"
+#include "draw/AnimationRenderer.h"
+#endif // EINK_RA01S_GP02
 
 #include "DisplayFormatters.h"
 #include "TimeFormatters.h"
@@ -153,6 +158,13 @@ void Screen::showSimpleBanner(const char *message, uint32_t durationMs)
 // Called to trigger a banner with custom message and duration
 void Screen::showOverlayBanner(BannerOverlayOptions banner_overlay_options)
 {
+#if defined(EINK_RA01S_GP02)
+    // Hard power-off guard: SPI1 is closed when screenOn==false.
+    // Any ui->update() or EINK_ADD_FRAMEFLAG while SPI1 is down → Hard Fault.
+    // Wake the panel synchronously first; if it's already on this is a no-op.
+    if (!screenOn)
+        handleSetOn(true);
+#endif // EINK_RA01S_GP02
 #ifdef USE_EINK
     EINK_ADD_FRAMEFLAG(dispdev, DEMAND_FAST); // Skip full refresh for all overlay menus
 #endif
@@ -452,8 +464,19 @@ void Screen::handleSetOn(bool on, FrameCallback einkScreensaver)
 #endif
 
 #ifdef PIN_EINK_EN
+#if defined(EINK_RA01S_GP02)
+            // Panel power must always be restored when turning screen on.
+            // SSD1680 lost all register state during power-off; reinitAfterPowerOn()
+            // restarts SPI1 and runs the full SSD1680 init sequence (SWRESET + registers).
+            // The first refresh will be a full update (white flash) which is expected behavior.
+            LOG_INFO("Powering on eInk panel");
+            digitalWrite(PIN_EINK_EN, HIGH);
+            delay(50); // Allow LDO to stabilize before touching SPI
+            static_cast<EInkDisplay *>(dispdev)->reinitAfterPowerOn();
+#else
             if (uiconfig.screen_brightness == 1)
                 digitalWrite(PIN_EINK_EN, HIGH);
+#endif // EINK_RA01S_GP02
 #elif defined(PCA_PIN_EINK_EN)
             if (uiconfig.screen_brightness > 0)
                 io.digitalWrite(PCA_PIN_EINK_EN, HIGH);
@@ -501,12 +524,42 @@ void Screen::handleSetOn(bool on, FrameCallback einkScreensaver)
 #endif
 
 #ifdef PIN_EINK_EN
+#if defined(EINK_RA01S_GP02)
+#if defined(HAS_EINK_ASYNCFULL) && defined(USE_EINK_DYNAMICDISPLAY)
+            // setScreensaverFrames() triggers a FULL async refresh for the ScreenPaused frame.
+            // Wait for it to complete before cutting SPI/power; otherwise the EInkDynamicDisplay
+            // Worker thread's notifyLater(100ms) pollAsyncRefresh() callback fires after SPI1.end()
+            // and Hard-Faults on nRF52 (SPIM access on a closed/powered-off bus).
+            EINK_JOIN_ASYNCREFRESH(dispdev);
+#endif
+            // Anti-leakage sequence for SSD1680 before cutting panel power.
+            //
+            // Order matters:
+            //   1. hibernate() sends the sleep command via SPI (SPI1 still alive)
+            //   2. SPI1.end() releases SPIM pin mux → all SPI pins revert to GPIO OUTPUT
+            //   3. tristate all SSD1680-connected GPIOs to prevent backpowering through ESD diodes
+            //   4. cut EN
+            //
+            // Previously SPI1.end() was called BEFORE dispdev->displayOff() (hibernate),
+            // which caused a Hard Fault: hibernate() attempted SPI writes to a closed bus.
+            LOG_INFO("Powering off eInk panel with anti-leakage sequence");
+            dispdev->displayOff(); // hibernate(): sends sleep cmd while SPI1 is still alive
+            SPI1.end();            // releases SPIM pin mux → pins revert to GPIO OUTPUT
+            pinMode(PIN_EINK_DC, INPUT);
+            pinMode(PIN_EINK_RES, INPUT);
+            pinMode(PIN_EINK_CS, INPUT);
+            pinMode(PIN_EINK_MOSI, INPUT);
+            pinMode(PIN_EINK_SCLK, INPUT);
+            pinMode(PIN_EINK_BUSY, INPUT_PULLDOWN);
+#endif // EINK_RA01S_GP02
             digitalWrite(PIN_EINK_EN, LOW);
 #elif defined(PCA_PIN_EINK_EN)
             io.digitalWrite(PCA_PIN_EINK_EN, LOW);
 #endif
 
+#if !defined(EINK_RA01S_GP02)
             dispdev->displayOff();
+#endif // EINK_RA01S_GP02
 
 #ifdef SCREEN_12V_ENABLE
             digitalWrite(SCREEN_12V_ENABLE, LOW);
@@ -734,6 +787,13 @@ void Screen::forceDisplay(bool forceUiUpdate)
 {
     // Nasty hack to force epaper updates for 'key' frames.  FIXME, cleanup.
 #ifdef USE_EINK
+#if defined(EINK_RA01S_GP02)
+    // Hard power-off guard: SPI1 is closed when screenOn==false.
+    // forceDisplay() called from e.g. handleTextMessage() while screen is off
+    // would drive SPI1 on a closed bus → Hard Fault on nRF52.
+    if (!screenOn)
+        return;
+#endif // EINK_RA01S_GP02
     // If requested, make sure queued commands are run, and UI has rendered a new frame
     if (forceUiUpdate) {
         // Force a display refresh, in addition to the UI update
@@ -788,6 +848,17 @@ int32_t Screen::runOnce()
     if (displayHeight == 0) {
         displayHeight = dispdev->getHeight();
     }
+#if defined(EINK_RA01S_GP02)
+    // Prevent sleep and drive redraws while the animation frame is active
+    if (showingNormalScreen && framesetInfo.positions.animation != 255 &&
+        ui->getUiState()->currentFrame == framesetInfo.positions.animation) {
+        powerFSM.trigger(EVENT_PRESS); // reset sleep watchdog
+        if (graphics::AnimationRenderer::needsRedraw()) {
+            EINK_ADD_FRAMEFLAG(dispdev, DEMAND_FAST);
+            setFastFramerate();
+        }
+    }
+#endif // EINK_RA01S_GP02
 
     // Detect frame transitions and clear message cache when leaving text message screen
     {
@@ -987,6 +1058,9 @@ void Screen::setScreensaverFrames(FrameCallback einkScreensaver)
     // If: one-off screensaver frame passed as argument. Handles doDeepSleep()
     if (einkScreensaver != NULL) {
         screensaverFrame = einkScreensaver;
+#if defined(EINK_RA01S_GP02)
+        ui->setOverlays(NULL, 0); // Clear nav bar / banner overlays before deep-sleep screen
+#endif                            // EINK_RA01S_GP02
         ui->setFrames(&screensaverFrame, 1);
     }
 
@@ -1055,6 +1129,12 @@ void Screen::setFrames(FrameFocus focus)
         focus = FOCUS_FAULT; // Change our "focus" parameter, to ensure we show the fault frame
     }
 
+#if defined(EINK_RA01S_GP02)
+    // Animation slideshow — first normal frame so it opens by default
+    fsi.positions.animation = numframes;
+    normalFrames[numframes++] = graphics::AnimationRenderer::drawAnimationFrame;
+    indicatorIcons.push_back(icon_home); // reuse home icon as placeholder
+#endif                                   // EINK_RA01S_GP02
 #if defined(DISPLAY_CLOCK_FRAME)
     if (!hiddenFrames.clock) {
         fsi.positions.clock = numframes;
@@ -1536,7 +1616,13 @@ int Screen::handleStatusUpdate(const meshtastic::Status *arg)
         bool currentUSB = powerStatus->getHasUSB();
         if (currentUSB != lastPowerUSBState) {
             lastPowerUSBState = currentUSB;
+#if !defined(EINK_RA01S_GP02)
             forceDisplay(true);
+#else
+            // Guard: forceDisplay() touches SPI1; skip if panel is powered off
+            if (screenOn)
+                forceDisplay(true);
+#endif // EINK_RA01S_GP02
         }
         break;
     }
@@ -1565,7 +1651,15 @@ int Screen::handleTextMessage(const meshtastic_MeshPacket *packet)
 
             // Only wake/force display if the configuration allows it
             if (shouldWakeOnReceivedMessage()) {
-                setOn(true);    // Wake up the screen first
+#if defined(EINK_RA01S_GP02)
+                // setOn(true) is async (enqueues SET_ON); forceDisplay() runs immediately
+                // after and hits a closed SPI1 bus → Hard Fault. Use the synchronous
+                // handleSetOn() so the panel is powered and SPI1 is restored before
+                // forceDisplay() touches the bus.
+                handleSetOn(true);
+#else
+                setOn(true); // Wake up the screen first
+#endif                          // EINK_RA01S_GP02
                 forceDisplay(); // Forces screen redraw
             }
             // === Prepare banner/popup content ===
@@ -1596,7 +1690,11 @@ int Screen::handleTextMessage(const meshtastic_MeshPacket *packet)
             if (NotificationRenderer::current_notification_type == notificationTypeEnum::text_input) {
                 // Wake and force redraw so popup is visible immediately
                 if (shouldWakeOnReceivedMessage()) {
+#if defined(EINK_RA01S_GP02)
+                    handleSetOn(true); // Synchronous: SPI1 must be up before forceDisplay()
+#else
                     setOn(true);
+#endif // EINK_RA01S_GP02
                     forceDisplay();
                 }
 
@@ -1723,6 +1821,13 @@ int Screen::handleInputEvent(const InputEvent *event)
         NotificationRenderer::inEvent = *event;
         static OverlayCallback overlays[] = {graphics::UIRenderer::drawNavigationBar, NotificationRenderer::drawBannercallback};
         ui->setOverlays(overlays, sizeof(overlays) / sizeof(overlays[0]));
+#if defined(EINK_RA01S_GP02) && defined(USE_EINK)
+        // text_input branch must also set DEMAND_FAST: the general-purpose flag block below
+        // is only reached for non-text_input events, so without this the E-ink dynamic
+        // display skips every cursor-move frame (FRAME_MATCHED_PREVIOUS).
+        EINK_ADD_FRAMEFLAG(dispdev, DEMAND_FAST);
+        EINK_ADD_FRAMEFLAG(dispdev, BLOCKING);
+#endif                      // EINK_RA01S_GP02
         setFastFramerate(); // Draw ASAP
         ui->update();
         return 0;
@@ -1868,7 +1973,13 @@ int Screen::handleInputEvent(const InputEvent *event)
                        this->ui->getUiState()->currentFrame == framesetInfo.positions.home) {
                 cannedMessageModule->LaunchWithDestination(NODENUM_BROADCAST);
             } else if (event->inputEvent == INPUT_BROKER_SELECT) {
+#if !defined(EINK_RA01S_GP02)
                 if (this->ui->getUiState()->currentFrame == framesetInfo.positions.home) {
+#else
+                if (this->ui->getUiState()->currentFrame == framesetInfo.positions.animation) {
+                    menuHandler::animationMenu();
+                } else if (this->ui->getUiState()->currentFrame == framesetInfo.positions.home) {
+#endif // EINK_RA01S_GP02
                     menuHandler::homeBaseMenu();
                 } else if (this->ui->getUiState()->currentFrame == framesetInfo.positions.system) {
                     menuHandler::systemBaseMenu();

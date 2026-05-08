@@ -416,6 +416,9 @@ void RadioLibInterface::handleTransmitInterrupt()
     if (sendingPacket)
         completeSending();
     powerMon->clearState(meshtastic_PowerMon_State_Lora_TXOn); // But our transmitter is definitely off now
+#if defined(EINK_RA01S_GP02) && defined(LED_MSG)
+    digitalWrite(LED_MSG, LED_STATE_OFF); // TX done
+#endif                                    // EINK_RA01S_GP02
 }
 
 void RadioLibInterface::completeSending()
@@ -450,6 +453,9 @@ void RadioLibInterface::handleReceiveInterrupt()
     }
 
     isReceiving = false;
+#if defined(EINK_RA01S_GP02) && defined(LED_MSG)
+    digitalWrite(LED_MSG, LED_STATE_ON); // RX processing start
+#endif                                   // EINK_RA01S_GP02
 
     // read the number of actually received bytes
     size_t length = iface->getPacketLength();
@@ -460,6 +466,9 @@ void RadioLibInterface::handleReceiveInterrupt()
     if (config.lora.region == meshtastic_Config_LoRaConfig_RegionCode_UNSET) {
         LOG_WARN("lora rx disabled: Region unset");
         airTime->logAirtime(RX_ALL_LOG, rxMsec);
+#if defined(EINK_RA01S_GP02) && defined(LED_MSG)
+        digitalWrite(LED_MSG, LED_STATE_OFF);
+#endif // EINK_RA01S_GP02
         return;
     }
 #endif
@@ -494,6 +503,9 @@ void RadioLibInterface::handleReceiveInterrupt()
             // altered packet with "from == 0" can do Remote Node Administration without permission
             if (radioBuffer.header.from == 0) {
                 LOG_WARN("Ignore received packet without sender");
+#if defined(EINK_RA01S_GP02) && defined(LED_MSG)
+                digitalWrite(LED_MSG, LED_STATE_OFF);
+#endif // EINK_RA01S_GP02
                 return;
             }
 
@@ -531,6 +543,9 @@ void RadioLibInterface::handleReceiveInterrupt()
             deliverToReceiver(mp);
         }
     }
+#if defined(EINK_RA01S_GP02) && defined(LED_MSG)
+    digitalWrite(LED_MSG, LED_STATE_OFF); // RX processing done
+#endif                                    // EINK_RA01S_GP02
 }
 
 void RadioLibInterface::startReceive()
@@ -563,6 +578,9 @@ void RadioLibInterface::checkRxDoneIrqFlag()
 void RadioLibInterface::configHardwareForSend()
 {
     powerMon->setState(meshtastic_PowerMon_State_Lora_TXOn);
+#if defined(EINK_RA01S_GP02) && defined(LED_MSG)
+    digitalWrite(LED_MSG, LED_STATE_ON); // TX active indicator
+#endif                                   // EINK_RA01S_GP02
 }
 
 void RadioLibInterface::setStandby()

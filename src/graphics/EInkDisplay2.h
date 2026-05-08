@@ -66,6 +66,15 @@ class EInkDisplay : public OLEDDisplay
      */
     void setDetected(uint8_t detected);
 
+#if defined(EINK_RA01S_GP02)
+    /**
+     * Re-initialize SPI bus and SSD1680 hardware after a panel power cycle.
+     * Call this from Screen.cpp after restoring PIN_EINK_EN (HIGH) following a
+     * screen-off sequence that called SPI1.end() and tristated all SSD1680 pins.
+     * Only implemented for EINK_RA01S_GP02; a no-op on all other variants.
+     */
+    void reinitAfterPowerOn();
+#endif // EINK_RA01S_GP02
   protected:
     // the header size of the buffer used, e.g. for the SPI command header
     virtual int getBufferOffset(void) override { return 0; }

@@ -111,6 +111,9 @@ class menuHandler
     static void displayUnitsMenu();
     static void messageBubblesMenu();
     static void textMessageMenu();
+#if defined(EINK_RA01S_GP02)
+    static void animationMenu();
+#endif // EINK_RA01S_GP02
 
   private:
     static void saveUIConfig();

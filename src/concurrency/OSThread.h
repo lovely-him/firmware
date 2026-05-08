@@ -60,6 +60,10 @@ class OSThread : public Thread
      */
     void setIntervalFromNow(unsigned long _interval);
 
+#if defined(EINK_RA01S_GP02)
+    /// Returns the current scheduled interval in ms (exposes Thread::interval for diagnostics).
+    unsigned long getInterval() const { return interval; }
+#endif // EINK_RA01S_GP02
   protected:
     /**
      * The method that will be called each time our thread gets a chance to run

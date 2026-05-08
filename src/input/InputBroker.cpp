@@ -29,6 +29,11 @@
 #include "input/kbMatrixImpl.h"
 #endif
 
+#if defined(EINK_RA01S_GP02)
+#include "NavCombos.h"
+#include "input/SixKeyNavInput.h"
+#endif // EINK_RA01S_GP02
+
 #if HAS_BUTTON || defined(ARCH_PORTDUINO)
 #include "input/ButtonThread.h"
 
@@ -366,8 +371,15 @@ void InputBroker::Init()
             rotaryEncoderInterruptImpl1 = nullptr;
         }
 #endif
+#if defined(EINK_RA01S_GP02)
+#if !MESHTASTIC_EXCLUDE_I2C && 0
         cardKbI2cImpl = new CardKbI2cImpl();
         cardKbI2cImpl->init();
+#endif
+#else
+        cardKbI2cImpl = new CardKbI2cImpl();
+        cardKbI2cImpl->init();
+#endif // EINK_RA01S_GP02
 #if defined(M5STACK_UNITC6L)
         i2cButton = new i2cButtonThread("i2cButtonThread");
 #endif
@@ -406,4 +418,21 @@ void InputBroker::Init()
 #ifdef INPUTBROKER_EXPRESSLRSFIVEWAY_TYPE
     expressLRSFiveWayInput = new ExpressLRSFiveWay();
 #endif
+
+#if defined(EINK_RA01S_GP02) && !MESHTASTIC_EXCLUDE_SIXKEYNAVINPUT
+    // 6-button navigation input — assign variant-specific combo callbacks from NavCombos
+    sixKeyNavInput = new SixKeyNavInput();
+    sixKeyNavInput->onComboUp = navComboUp;
+    sixKeyNavInput->onComboDown = navComboDown;
+    sixKeyNavInput->onComboLeft = navComboLeft;
+    sixKeyNavInput->onComboRight = navComboRight;
+    sixKeyNavInput->onFnHeld = navComboFnHeld;
+#ifdef POWER_THROTTLE_MS
+    sixKeyNavInput->onComboEnter = navComboEnter;
+#endif
+    if (!sixKeyNavInput->init()) {
+        delete sixKeyNavInput;
+        sixKeyNavInput = nullptr;
+    }
+#endif // EINK_RA01S_GP02
 }

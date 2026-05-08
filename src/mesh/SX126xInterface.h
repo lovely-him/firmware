@@ -36,6 +36,12 @@ template <class T> class SX126xInterface : public RadioLibInterface
     float currentLimit = 140; // Higher OCP limit for SX126x PA
     float tcxoVoltage = 0.0;
 
+#if defined(EINK_RA01S_GP02)
+    // True after the anti-leakage sequence (SPI.end + power cut) has run.
+    // Guards against re-entering hardware sleep when SPI bus is already closed.
+    bool loraHardwareSleeping = false;
+#endif // EINK_RA01S_GP02
+
     /**
      * Specific module instance
      */
