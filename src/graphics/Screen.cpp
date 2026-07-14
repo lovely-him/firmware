@@ -481,6 +481,13 @@ void Screen::handleSetOn(bool on, FrameCallback einkScreensaver)
             if (uiconfig.screen_brightness > 0)
                 io.digitalWrite(PCA_PIN_EINK_EN, HIGH);
 #endif
+// ── eink-ra01s-gp02: polarity-aware power control (PIN_EINK_POWER / EINK_POWER_ACTIVE) ──
+#if defined(EINK_RA01S_GP02) && defined(PIN_EINK_POWER)
+            LOG_INFO("Powering on eInk panel");
+            digitalWrite(PIN_EINK_POWER, EINK_POWER_ACTIVE);
+            delay(50);
+            static_cast<EInkDisplay *>(dispdev)->reinitAfterPowerOn();
+#endif
 
 #if defined(ST7789_CS) &&                                                                                                        \
     !defined(M5STACK) // set display brightness when turning on screens. Just moved function from TFTDisplay to here.
@@ -555,6 +562,22 @@ void Screen::handleSetOn(bool on, FrameCallback einkScreensaver)
             digitalWrite(PIN_EINK_EN, LOW);
 #elif defined(PCA_PIN_EINK_EN)
             io.digitalWrite(PCA_PIN_EINK_EN, LOW);
+#endif
+// ── eink-ra01s-gp02: polarity-aware power-off ──
+#if defined(EINK_RA01S_GP02) && defined(PIN_EINK_POWER)
+#if defined(HAS_EINK_ASYNCFULL) && defined(USE_EINK_DYNAMICDISPLAY)
+            EINK_JOIN_ASYNCREFRESH(dispdev);
+#endif
+            LOG_INFO("Powering off eInk panel with anti-leakage sequence");
+            dispdev->displayOff();
+            SPI1.end();
+            pinMode(PIN_EINK_DC, INPUT);
+            pinMode(PIN_EINK_RES, INPUT);
+            pinMode(PIN_EINK_CS, INPUT);
+            pinMode(PIN_EINK_MOSI, INPUT);
+            pinMode(PIN_EINK_SCLK, INPUT);
+            pinMode(PIN_EINK_BUSY, INPUT_PULLDOWN);
+            digitalWrite(PIN_EINK_POWER, !EINK_POWER_ACTIVE);
 #endif
 
 #if !defined(EINK_RA01S_GP02)

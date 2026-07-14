@@ -988,6 +988,17 @@ void menuHandler::homeBaseMenu()
             }
             saveUIConfig();
 #endif
+// ── eink-ra01s-gp02: polarity-aware backlight toggle ──
+#if defined(EINK_RA01S_GP02) && defined(PIN_EINK_POWER)
+            if (uiconfig.screen_brightness == 1) {
+                uiconfig.screen_brightness = 0;
+                digitalWrite(PIN_EINK_POWER, !EINK_POWER_ACTIVE);
+            } else {
+                uiconfig.screen_brightness = 1;
+                digitalWrite(PIN_EINK_POWER, EINK_POWER_ACTIVE);
+            }
+            saveUIConfig();
+#endif
         } else if (selected == Sleep) {
             screen->setOn(false);
         } else if (selected == Position) {

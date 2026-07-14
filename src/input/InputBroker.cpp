@@ -42,6 +42,9 @@ ButtonThread *TouchButtonThread = nullptr;
 #if defined(PIN_EINK_EN)
 static bool touchBacklightWasOn = false;
 static bool touchBacklightActive = false;
+#elif defined(EINK_RA01S_GP02) && defined(PIN_EINK_POWER)
+static bool touchBacklightWasOn = false;
+static bool touchBacklightActive = false;
 #endif
 #endif
 
@@ -239,6 +242,26 @@ void InputBroker::Init()
     touchConfig.onRelease = []() {
         if (touchBacklightActive && !touchBacklightWasOn) {
             digitalWrite(PIN_EINK_EN, LOW);
+        }
+        touchBacklightActive = false;
+    };
+#endif
+// ── eink-ra01s-gp02: polarity-aware backlight control ──
+#if defined(EINK_RA01S_GP02) && defined(PIN_EINK_POWER)
+    // Touch pad drives the e-ink panel power on our board (active-LOW).
+    // Non-touch boards skip this; HAS_TOUCHSCREEN / BUTTON_PIN_TOUCH guard above.
+    touchConfig.longPress = INPUT_BROKER_NONE;
+    touchConfig.suppressLeadUpSound = true;
+    touchConfig.onPress = []() {
+        touchBacklightWasOn = uiconfig.screen_brightness == 1;
+        if (!touchBacklightWasOn) {
+            digitalWrite(PIN_EINK_POWER, EINK_POWER_ACTIVE);
+        }
+        touchBacklightActive = true;
+    };
+    touchConfig.onRelease = []() {
+        if (touchBacklightActive && !touchBacklightWasOn) {
+            digitalWrite(PIN_EINK_POWER, !EINK_POWER_ACTIVE);
         }
         touchBacklightActive = false;
     };

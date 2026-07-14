@@ -30,76 +30,95 @@
 // =============================================================================
 const uint32_t g_ADigitalPinMap[] = {
     // P0.00–P0.31
-    0xff, // 0  P0.00  XL1  — HF crystal, do not use
-    0xff, // 1  P0.01  XL2  — HF crystal, do not use
+    0xff, // 0  P0.00  XL1               — HF crystal, do not use
+    0xff, // 1  P0.01  XL2               — HF crystal, do not use
     2,    // 2  P0.02  PIN_EINK_RES      — E-Ink reset (active-low, idle HIGH)
-    3,    // 3  P0.03  PIN_EINK_BUSY     — E-Ink busy output (active-high; nRF pull-down at sleep)
-    4,    // 4  P0.04  —
-    5,    // 5  P0.05  —
-    6,    // 6  P0.06  PIN_BUTTON_ENTER  — button Enter  (ACTIVE_LOW, pull-up)
-    7,    // 7  P0.07  —
-    8,    // 8  P0.08  PIN_BUTTON_LEFT   — button Left/Back  (ACTIVE_LOW, pull-up)
-    9,    // 9  P0.09  PIN_BUTTON_UP     — button Up  (NFC1 as GPIO via UICR NFCPINS; ACTIVE_LOW, pull-up)
-    10,   // 10 P0.10  PIN_BUTTON_DOWN   — button Down  (NFC2 as GPIO via UICR NFCPINS; ACTIVE_LOW, pull-up)
-    11,   // 11 P0.11  PIN_BUTTON_RIGHT  — button Right  (ACTIVE_LOW, pull-up)
-    12,   // 12 P0.12  PIN_GPS_EN        — GP-02 LDO power enable (active HIGH)
-    13,   // 13 P0.13  —
-    14,   // 14 P0.14  _PIN_LED_GREEN / LED_MSG       — LED Green  (ACTIVE_LOW)
-    15,   // 15 P0.15  —
-    16,   // 16 P0.16  GP-02 CLKOUT      — GPS clock output (not used by firmware)
-    17,   // 17 P0.17  SX126X_BUSY       — LoRa busy output (active-high)
-    18,   // 18 P0.18  RESET             — SWD reset (UICR gpio-as-nreset)
-    19,   // 19 P0.19  PIN_SPI_SCK       — LoRa SPI0 SCK
-    20,   // 20 P0.20  SX126X_DIO1       — LoRa TX/RX done IRQ (active-high)
+    3,    // 3  P0.03  PIN_EINK_BUSY     — E-Ink busy (active-high; nRF pull-down at sleep)
+    4,    // 4  P0.04  PIN_BATTERY_ADC   — battery ADC (AIN2)
+    5,    // 5  P0.05  PIN_EXT_FLASH_HOLD — external flash hold
+    6,    // 6  P0.06  PIN_BTN_F3        — button Enter/Confirm (ACTIVE_LOW, pull-up)
+    7,    // 7  P0.07  PIN_EXT_FLASH_WP  — external flash write-protect
+    8,    // 8  P0.08  PIN_BTN_F4        — button Left/Back (ACTIVE_LOW, pull-up)
+    9,    // 9  P0.09  PIN_BTN_F2        — button Up [NFC1 as GPIO] (ACTIVE_LOW, pull-up)
+    10,   // 10 P0.10  PIN_BTN_F5        — button Down [NFC2 as GPIO] (ACTIVE_LOW, pull-up)
+    11,   // 11 P0.11  PIN_BTN_F6        — button Right (ACTIVE_LOW, pull-up)
+    12,   // 12 P0.12  PIN_GNSS_PWR      — GP-02 LDO enable (active HIGH)
+    13,   // 13 P0.13  PIN_LORA_PWR      — LoRa RA-01S LDO enable (active HIGH)
+    14,   // 14 P0.14  PIN_LED_2         — LED Blue (ACTIVE_LOW)
+    15,   // 15 P0.15  PIN_BATTERY_PWR   — battery divider enable (active HIGH)
+    16,   // 16 P0.16  PIN_RTC_CLKOUT    — PCF8563 CLKOUT (not used by firmware)
+    17,   // 17 P0.17  PIN_LORA_BUSY     — LoRa busy output (active-high)
+    18,   // 18 P0.18  nRESET            — SWD reset / board reset button (UICR gpio-as-nreset)
+    19,   // 19 P0.19  PIN_LORA_SCK      — LoRa SPI0 SCK
+    20,   // 20 P0.20  PIN_LORA_DIO1     — LoRa TX/RX done IRQ (active-high)
     21,   // 21 P0.21  —
-    22,   // 22 P0.22  PIN_SPI_MOSI      — LoRa SPI0 MOSI
-    23,   // 23 P0.23  PIN_SPI_MISO      — LoRa SPI0 MISO
-    24,   // 24 P0.24  SX126X_CS         — LoRa chip select (active-low)
-    25,   // 25 P0.25  SX126X_RESET      — LoRa reset (active-low, idle HIGH)
+    22,   // 22 P0.22  PIN_LORA_MOSI     — LoRa SPI0 MOSI
+    23,   // 23 P0.23  PIN_LORA_MISO     — LoRa SPI0 MISO
+    24,   // 24 P0.24  PIN_LORA_CS       — LoRa chip select (active-low)
+    25,   // 25 P0.25  PIN_LORA_RST      — LoRa reset (active-low, idle HIGH)
     26,   // 26 P0.26  PIN_WIRE_SDA      — I2C SDA (PCF8563 RTC @ 0x51)
     27,   // 27 P0.27  PIN_WIRE_SCL      — I2C SCL (PCF8563 RTC @ 0x51)
     28,   // 28 P0.28  PIN_EINK_DC       — E-Ink data/command (HIGH=data, LOW=cmd)
-    29,   // 29 P0.29  PIN_SPI1_MOSI / PIN_EINK_MOSI — E-Ink SPI1 MOSI
+    29,   // 29 P0.29  PIN_EINK_MOSI     — E-Ink SPI1 MOSI
     30,   // 30 P0.30  PIN_EINK_CS       — E-Ink chip select (active-low)
-    31,   // 31 P0.31  PIN_SPI1_SCK / PIN_EINK_SCLK  — E-Ink SPI1 SCK
+    31,   // 31 P0.31  PIN_EINK_SCLK     — E-Ink SPI1 SCK
 
     // P1.00–P1.15
-    32, // 32 P1.00  —
-    33, // 33 P1.01  _PIN_LED_BLUE / LED_PAIRING     — LED Blue  (ACTIVE_LOW)
-    34, // 34 P1.02  —
-    35, // 35 P1.03  _PIN_LED_RED / LED_EINK_ACTIVITY — LED Red  (ACTIVE_LOW)
-    36, // 36 P1.04  GP-02 PPS         — GPS pulse-per-second output (not used by firmware)
-    37, // 37 P1.05  PIN_GPS_RESET     — GP-02 hard reset (active HIGH via NPN transistor)
+    32, // 32 P1.00  PIN_EXT_UART_RX    — external UART listen (RX-only, 1200 bps)
+    33, // 33 P1.01  PIN_LED_1          — LED Green (ACTIVE_LOW)
+    34, // 34 P1.02  PIN_GNSS_REGION    — GP-02 constellation selection
+    35, // 35 P1.03  PIN_LED_0          — LED Red (ACTIVE_LOW)
+    36, // 36 P1.04  PIN_GNSS_PPS       — GP-02 pulse-per-second output
+    37, // 37 P1.05  PIN_GNSS_RST       — GP-02 hard reset (active HIGH via NPN)
     38, // 38 P1.06  —
-    39, // 39 P1.07  —
-    40, // 40 P1.08  GPS_TX_PIN / PIN_SERIAL1_TX — UART1 TX → GP-02 RX
-    41, // 41 P1.09  GPS_RX_PIN / PIN_SERIAL1_RX — UART1 RX ← GP-02 TX
-    42, // 42 P1.10  PIN_BUTTON_FN     — button Fn/Cancel (ACTIVE_LOW, pull-up; hold ≥4s → shutdown)
-    43, // 43 P1.11  —
-    44, // 44 P1.12  PIN_EINK_EN       — E-Ink panel LDO enable (active HIGH)
-    45, // 45 P1.13  —
-    46, // 46 P1.14  —
-    47, // 47 P1.15  SX126X_POWER_EN   — LoRa module LDO enable (active HIGH)
+    39, // 39 P1.07  PIN_GNSS_STBY      — GP-02 standby (active-low; HIGH=normal)
+    40, // 40 P1.08  PIN_GNSS_TX        — UART1 TX → GP-02 RX
+    41, // 41 P1.09  PIN_GNSS_RX        — UART1 RX ← GP-02 TX
+    42, // 42 P1.10  PIN_EINK_EN        — E-Ink panel LDO enable (active HIGH)
+    43, // 43 P1.11  PIN_BTN_F1         — button Fn/Cancel (ACTIVE_LOW, pull-up; hold ≥4s → shutdown)
+    44, // 44 P1.12  PIN_EXT_FLASH_MOSI — external flash SPI MOSI
+    45, // 45 P1.13  PIN_EXT_FLASH_MISO — external flash SPI MISO
+    46, // 46 P1.14  PIN_EXT_FLASH_SCK  — external flash SPI SCK
+    47, // 47 P1.15  PIN_EXT_FLASH_CS   — external flash chip select (active-low)
 };
 
 // =============================================================================
 // initVariant
 // Called by the Arduino framework after SoftDevice init, before setup().
-// Only configure hardware that is definitely present in Phase 0.
+// Only configure hardware that is definitely present.
 // DO NOT call sd_power_dcdc_mode_set() — no external LC filter on this board.
 // =============================================================================
 void initVariant(void)
 {
-    // --- LEDs ---
-    // All three LEDs are GPIO_ACTIVE_LOW: set HIGH (off) before enabling output.
-    pinMode(_PIN_LED_RED, OUTPUT);
-    ledOff(_PIN_LED_RED);
+    // --- LEDs (all GPIO_ACTIVE_LOW: set HIGH/off before enabling output) ---
+    pinMode(PIN_LED_0, OUTPUT);
+    ledOff(PIN_LED_0);
 
-    pinMode(_PIN_LED_BLUE, OUTPUT);
-    ledOff(_PIN_LED_BLUE);
+    pinMode(PIN_LED_2, OUTPUT);
+    ledOff(PIN_LED_2);
 
-    pinMode(_PIN_LED_GREEN, OUTPUT);
-    ledOff(_PIN_LED_GREEN);
+    pinMode(PIN_LED_1, OUTPUT);
+    ledOff(PIN_LED_1);
+
+    // --- External Flash PY25Q32 GPIO init — safe default levels ---
+    // CS  → HIGH (deselected)
+    // WP# → HIGH (write protection disabled)
+    // HOLD# → HIGH (normal operation)
+    // These pins share the main 3.3 V rail; no LDO to cut.
+    // Setting them to known levels prevents floating inputs that could
+    // couple noise or cause marginal leakage through the Flash I/O cells.
+#if defined(PIN_EXT_FLASH_CS)
+    pinMode(PIN_EXT_FLASH_CS, OUTPUT);
+    digitalWrite(PIN_EXT_FLASH_CS, HIGH);
+#endif
+#if defined(PIN_EXT_FLASH_WP)
+    pinMode(PIN_EXT_FLASH_WP, OUTPUT);
+    digitalWrite(PIN_EXT_FLASH_WP, HIGH);
+#endif
+#if defined(PIN_EXT_FLASH_HOLD)
+    pinMode(PIN_EXT_FLASH_HOLD, OUTPUT);
+    digitalWrite(PIN_EXT_FLASH_HOLD, HIGH);
+#endif
 
     SEGGER_RTT_printf(0, "initVariant: complete\n");
 }
@@ -113,72 +132,64 @@ void initVariant(void)
 void variant_shutdown(void)
 {
     // Turn off all LEDs before deep sleep.
-    // PIN_LED1/2/3 are not defined (to avoid framework auto-mapping), so
-    // Power.cpp's ledOff(PIN_LEDx) blocks are skipped; we handle it here.
-    ledOff(_PIN_LED_RED);
-    ledOff(_PIN_LED_BLUE);
-    ledOff(_PIN_LED_GREEN);
+    ledOff(PIN_LED_0);
+    ledOff(PIN_LED_2);
+    ledOff(PIN_LED_1);
 
-#if defined(USE_EINK) && defined(PIN_EINK_EN)
+#if defined(USE_EINK) && defined(PIN_EINK_POWER)
     // Anti-leakage sequence before deep sleep.
-    //
-    // Root cause: GxEPD2 hibernate() ends with a DEEP_SLEEP_MODE command
-    // followed by data byte 0x01, leaving DC = OUTPUT HIGH (data mode).
-    // The SPI bus retains the last driven state on MOSI as well.
-    // When EN cuts the LDO, any MCU pin still driven HIGH backpowers the
-    // SSD1680 through its I/O ESD protection diodes (~12 mA per pin).
-    //
-    // Fix: tristate ALL SSD1680-connected pins BEFORE cutting EN.
     // Order is critical — tristate first, then remove power.
-    //
-    //   DC   (P0.28) HIGH after hibernate() data phase → primary leakage source
-    //   RST  (P0.2)  active-low → idle HIGH           → leakage source
-    //   CS   (P0.30) active-low → idle HIGH            → leakage source
-    //   MOSI (P0.29) last bit state unknown             → potential leakage
-    //   SCK  (P0.31) SPI MODE0 idle = LOW, but tristate for safety
-    //   BUSY (P0.3)  input direction, add pull-down so busy_wait() cannot
-    //                hang on re-init after wakeup (BUSY floats when unpowered)
     pinMode(PIN_EINK_DC, INPUT);
     pinMode(PIN_EINK_RES, INPUT);
     pinMode(PIN_EINK_CS, INPUT);
     pinMode(PIN_EINK_MOSI, INPUT);
     pinMode(PIN_EINK_SCLK, INPUT);
     pinMode(PIN_EINK_BUSY, INPUT_PULLDOWN);
-    // Cut panel LDO last — all driven pins are now high-Z
-    digitalWrite(PIN_EINK_EN, LOW);
+    // Cut panel LDO last (active-LOW: !EINK_POWER_ACTIVE = OFF)
+    digitalWrite(PIN_EINK_POWER, !EINK_POWER_ACTIVE);
 #endif
 
-#if defined(USE_SX1262) && defined(SX126X_POWER_EN)
+#if defined(USE_SX1262) && defined(PIN_LORA_PWR)
     // Anti-leakage sequence before cutting LoRa LDO (deep sleep).
-    //
-    // Root cause: when VDD collapses, MCU pins still driven HIGH source
-    // current through the SX126x I/O ESD protection diodes back into the
-    // unpowered rail.
     //
     // Note: cpuDeepSleep() calls SPI.end() BEFORE variant_shutdown(), so
     // SPIM0 pin mux is already released here and pinMode() is effective.
-    // We do NOT call SPI.end() again — that is handled by the framework.
-    // (This mirrors the E-Ink block above which also skips SPI1.end().)
-    //
-    // Pins to tristate (all SX1262-connected MCU pins):
-    //   RESET (P0.25) active-low → idle HIGH  — primary leakage source
-    //   CS    (P0.24) active-low → idle HIGH  — leakage source
-    //   MOSI  (P0.22) last SPI bit unknown     — potential leakage
-    //   MISO  (P0.23) SX1262 output; released by SPI.end() but tristate explicitly
-    //   SCK   (P0.19) SPI MODE0 idle = LOW, but tristate for safety
-    //   DIO1  (P0.20) SX1262 IRQ output (active-high); pull-down prevents false IRQ on wakeup
-    //   BUSY  (P0.17) module output → INPUT_PULLDOWN prevents busy_wait()
-    //                 hang when module is unpowered on next wakeup
-    //
-    // Order: tristate ALL pins FIRST, cut power LAST.
-    pinMode(SX126X_RESET, INPUT);
-    pinMode(SX126X_CS, INPUT);
-    pinMode(PIN_SPI_MOSI, INPUT);
-    pinMode(PIN_SPI_MISO, INPUT);
-    pinMode(PIN_SPI_SCK, INPUT);
-    pinMode(SX126X_DIO1, INPUT_PULLDOWN);
-    pinMode(SX126X_BUSY, INPUT_PULLDOWN);
-    digitalWrite(SX126X_POWER_EN, LOW);
+    pinMode(PIN_LORA_RST, INPUT);
+    pinMode(PIN_LORA_CS, INPUT);
+    pinMode(PIN_LORA_MOSI, INPUT);
+    pinMode(PIN_LORA_MISO, INPUT);
+    pinMode(PIN_LORA_SCK, INPUT);
+    pinMode(PIN_LORA_DIO1, INPUT_PULLDOWN);
+    pinMode(PIN_LORA_BUSY, INPUT_PULLDOWN);
+    digitalWrite(PIN_LORA_PWR, LOW);
 #endif
+
+    // --- External Flash PY25Q32 — tristate before deep sleep ---
+    // The Flash shares the main 3.3 V rail (no independent LDO), so we
+    // cannot cut power.  Instead, set every MCU-connected pin to INPUT
+    // (high-Z) so no MCU-driven current can leak through the Flash I/O
+    // protection diodes when VDD is present but the MCU is in sleep.
+    //
+    // SPIM1 is not an Arduino SPI instance, so no .end() call is needed.
+    // pinMode() is effective immediately.
+#if defined(PIN_EXT_FLASH_SCK)
+    pinMode(PIN_EXT_FLASH_SCK, INPUT);
+#endif
+#if defined(PIN_EXT_FLASH_MOSI)
+    pinMode(PIN_EXT_FLASH_MOSI, INPUT);
+#endif
+#if defined(PIN_EXT_FLASH_MISO)
+    pinMode(PIN_EXT_FLASH_MISO, INPUT);
+#endif
+#if defined(PIN_EXT_FLASH_CS)
+    pinMode(PIN_EXT_FLASH_CS, INPUT);
+#endif
+#if defined(PIN_EXT_FLASH_WP)
+    pinMode(PIN_EXT_FLASH_WP, INPUT);
+#endif
+#if defined(PIN_EXT_FLASH_HOLD)
+    pinMode(PIN_EXT_FLASH_HOLD, INPUT);
+#endif
+
     SEGGER_RTT_printf(0, "variant_shutdown: Entering deep sleep mode\n");
 }

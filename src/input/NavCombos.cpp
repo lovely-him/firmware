@@ -45,9 +45,9 @@ void inkHudWakeup()
 
     LOG_INFO("NavCombo: display wakeup - EN HIGH + SPI1.begin + SSD1680 reinit");
 
-    // 1. Restore panel LDO (PIN_EINK_EN stays OUTPUT from setupNicheGraphics).
-    //    PIN_EINK_EN direction is preserved; only level changes.
-    digitalWrite(PIN_EINK_EN, HIGH);
+    // 1. Restore panel LDO (PIN_EINK_POWER stays OUTPUT from setupNicheGraphics).
+    //    PIN_EINK_POWER direction is preserved; only level changes.
+    digitalWrite(PIN_EINK_POWER, EINK_POWER_ACTIVE);
     delay(50); // LDO stabilize + SSD1680 POR completion
 
     // 2. Re-init SPI1 - pins were tristated during power-off.
@@ -104,8 +104,8 @@ static void inkHudDisplayPowerOff()
     pinMode(PIN_EINK_BUSY, INPUT_PULLDOWN); // pull-down so wakeup reinit won't hang on stale HIGH
 
     // 3. Cut panel LDO - all driven pins are now high-Z.
-    //    PIN_EINK_EN direction stays OUTPUT (set once in setupNicheGraphics).
-    digitalWrite(PIN_EINK_EN, LOW);
+    //    PIN_EINK_POWER direction stays OUTPUT (set once in setupNicheGraphics).
+    digitalWrite(PIN_EINK_POWER, !EINK_POWER_ACTIVE);
 
     s_inkHudDisplayOff = true;
     LOG_INFO("NavCombo: display off ~0 uA leakage");

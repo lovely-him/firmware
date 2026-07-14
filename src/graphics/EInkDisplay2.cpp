@@ -298,12 +298,13 @@ bool EInkDisplay::connect()
 
 #elif defined(EINK_RA01S_GP02)
     {
-        // Panel power MUST be HIGH before SPI1.begin() and GxEPD2 init.
-        // The PIN_EINK_EN block above set EN LOW (default #else path);
-        // override it here before touching the SPI bus.
-        LOG_INFO("EINK_RA01S_GP02: enabling panel power");
-        digitalWrite(PIN_EINK_EN, HIGH);
-        delay(50); // Allow display module power rail to stabilize (raised from 10ms)
+        // PIN_EINK_POWER / EINK_POWER_ACTIVE controls the panel LDO
+        // (active-LOW: LOW = ON, HIGH = OFF).  The generic PIN_EINK_EN init
+        // block above is skipped because PIN_EINK_EN is not defined on this
+        // board — set up the power pin here.
+        pinMode(PIN_EINK_POWER, OUTPUT);
+        digitalWrite(PIN_EINK_POWER, EINK_POWER_ACTIVE); // panel ON
+        delay(50); // Allow display module power rail to stabilize
 
         // SPI1 is constructed by the framework using PIN_SPI1_SCK/MOSI/MISO
         // defined in display_eink.h. begin() configures the SPIM peripheral.
