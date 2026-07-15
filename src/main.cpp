@@ -59,6 +59,13 @@ NimbleBluetooth *nimbleBluetooth = nullptr;
 NRF52Bluetooth *nrf52Bluetooth = nullptr;
 #endif
 
+#if defined(EINK_RA01S_GP02)
+#ifdef ARCH_NRF52
+#include <bluefruit.h>
+#endif
+#include "input/NavCombos.h"
+#endif // EINK_RA01S_GP02
+
 #if HAS_WIFI || defined(USE_WS5500) || defined(USE_CH390D)
 #include "mesh/api/WiFiServerAPI.h"
 #include "mesh/wifi/WiFiAPClient.h"
@@ -944,6 +951,12 @@ void setup()
         RECORD_CRITICALERROR(meshtastic_CriticalErrorCode_NO_AXP192); // Record a hardware fault for missing hardware
 #endif
 
+#if defined(EINK_RA01S_GP02) && MESHTASTIC_EXCLUDE_I2C && HAS_SCREEN && defined(USE_EINK)
+    // MESHTASTIC_EXCLUDE_I2C=1 prevents the USE_EINK branch above from running on I2C-less boards.
+    // SPI-only E-ink does not need I2C, so call setup() directly here.
+    if (screen)
+        screen->setup();
+#else
 #if !MESHTASTIC_EXCLUDE_I2C
 // Don't call screen setup until after nodedb is setup (because we need
 // the current region name)
@@ -962,6 +975,7 @@ void setup()
         screen->setup();
 #endif
 #endif
+#endif // EINK_RA01S_GP02
 
     auto rIf = initLoRa();
 
@@ -1209,6 +1223,14 @@ void loop()
     messageStoreAutosaveTick();
 #endif
     long delayMsec = mainController.runOrDelay();
+
+#if defined(EINK_RA01S_GP02)
+    // Re-clamp thread intervals after runOrDelay() lets threads reset themselves.
+    // Placed here (post-runOrDelay, pre-mainDelay) so each sleep cycle enforces
+    // the throttle floor — without this, threads would reset to their own short
+    // intervals and the throttle would only last one cycle.
+    navThrottleApply();
+#endif // EINK_RA01S_GP02
 
     // We want to sleep as long as possible here - because it saves power
     if (!runASAP && loopCanSleep()) {
