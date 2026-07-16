@@ -84,6 +84,16 @@ public:
      */
     void setDetected(uint8_t detected);
 
+#if defined(Nodara)
+    /**
+     * Symmetric power management for the E-Ink panel.
+     * powerOn()  — enable LDO, restart SPI1, re-initialize SSD1680 after POR.
+     * powerOff() — join pending async refresh, put SSD1680 to sleep, close SPI1,
+     *              tristate all panel pins to prevent leakage, then cut LDO.
+     */
+    void powerOn();
+    void powerOff();
+#endif // Nodara
 protected:
     // the header size of the buffer used, e.g. for the SPI command header
     virtual int getBufferOffset(void) override { return 0; }

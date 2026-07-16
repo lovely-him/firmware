@@ -101,7 +101,7 @@ static void setHardwareMenuActive(bool active)
     if (redBankController)
         redBankController->setMenuActive(active);
 #elif defined(Nodara)
-    nodara::setMenuActive(active);
+    // nodara::setMenuActive(active);
 #endif
 }
 #endif
@@ -1071,27 +1071,6 @@ void menuHandler::textMessageMenu()
 {
     cannedMessageModule->LaunchWithDestination(NODENUM_BROADCAST);
 }
-
-#ifdef EINK_RA01S_GP02
-void menuHandler::animationMenu()
-{
-    const uint8_t count = graphics::AnimationRenderer::getAnimCount();
-    // Build a static array of name pointers (max ANIM_COUNT animations).
-    static const char *optionsArray[32];
-    for (uint8_t i = 0; i < count && i < 32; i++)
-        optionsArray[i] = graphics::AnimationRenderer::getAnimName(i);
-
-    BannerOverlayOptions bannerOptions;
-    bannerOptions.message = "Select Animation";
-    bannerOptions.optionsArrayPtr = optionsArray;
-    bannerOptions.optionsCount = count;
-    bannerOptions.durationMs = 120000;
-    bannerOptions.bannerCallback = [](int selected) -> void {
-        graphics::AnimationRenderer::setAnimation(static_cast<uint8_t>(selected));
-    };
-    screen->showOverlayBanner(bannerOptions);
-}
-#endif
 
 void menuHandler::textMessageBaseMenu()
 {

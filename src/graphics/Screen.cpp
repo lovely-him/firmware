@@ -29,6 +29,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #if HAS_SCREEN
 #include "EInkParallelDisplay.h"
 #include <OLEDDisplay.h>
+#if defined(Nodara)
+#include "EInkDisplay2.h"
+#include "PowerFSM.h"
+#endif // Nodara
 
 #include "DisplayFormatters.h"
 #include "TimeFormatters.h"
@@ -160,6 +164,13 @@ void Screen::showSimpleBanner(const char *message, uint32_t durationMs)
 // Called to trigger a banner with custom message and duration
 void Screen::showOverlayBanner(BannerOverlayOptions banner_overlay_options)
 {
+#if defined(Nodara)
+    // Hard power-off guard: SPI1 is closed when screenOn==false.
+    // Any ui->update() or EINK_ADD_FRAMEFLAG while SPI1 is down → Hard Fault.
+    // Wake the panel synchronously first; if it's already on this is a no-op.
+    if (!screenOn)
+        handleSetOn(true);
+#endif // Nodara
 #ifdef USE_EINK
     EINK_ADD_FRAMEFLAG(dispdev, DEMAND_FAST); // Skip full refresh for all overlay menus
 #endif
@@ -450,6 +461,10 @@ void Screen::handleSetOn(bool on, FrameCallback einkScreensaver)
             PMU->enablePowerOutput(XPOWERS_ALDO2);
 #endif
 
+#if defined(Nodara) && defined(PIN_EINK_POWER)
+            static_cast<EInkDisplay *>(dispdev)->powerOn();
+#endif // Nodara
+
 // some screens seem to need a kick in the pants to turn back on
 #if defined(MUZI_BASE) || defined(M5STACK_CARDPUTER_ADV)
             dispdev->init();
@@ -560,6 +575,13 @@ void Screen::handleSetOn(bool on, FrameCallback einkScreensaver)
             nrf_gpio_cfg_default(ST7796_NSS);
 #endif
 #endif
+
+#if defined(Nodara) && defined(PIN_EINK_POWER)
+#if defined(HAS_EINK_ASYNCFULL) && defined(USE_EINK_DYNAMICDISPLAY)
+            EINK_JOIN_ASYNCREFRESH(dispdev);
+#endif
+            static_cast<EInkDisplay *>(dispdev)->powerOff();
+#endif // Nodara
 
 #ifdef T_WATCH_S3
             PMU->disablePowerOutput(XPOWERS_ALDO2);
@@ -747,6 +769,13 @@ void Screen::forceDisplay(bool forceUiUpdate)
 {
     // Nasty hack to force epaper updates for 'key' frames.  FIXME, cleanup.
 #ifdef USE_EINK
+#if defined(Nodara)
+    // Hard power-off guard: SPI1 is closed when screenOn==false.
+    // forceDisplay() called from e.g. handleTextMessage() while screen is off
+    // would drive SPI1 on a closed bus → Hard Fault on nRF52.
+    if (!screenOn)
+        return;
+#endif // Nodara
     // If requested, make sure queued commands are run, and UI has rendered a new frame
     if (forceUiUpdate) {
         LOG_INFO("Force E-Ink display update");
@@ -802,6 +831,12 @@ int32_t Screen::runOnce()
     if (displayHeight == 0) {
         displayHeight = dispdev->getHeight();
     }
+#if defined(Nodara)
+    // Prevent sleep and drive redraws while the first frame is active
+    if (showingNormalScreen && ui->getUiState()->currentFrame == 0) {
+        powerFSM.trigger(EVENT_PRESS); // reset sleep watchdog
+    }
+#endif // Nodara
 
     // Detect frame transitions and clear message cache when leaving text message screen
     {
@@ -1011,6 +1046,10 @@ void Screen::setScreensaverFrames(FrameCallback einkScreensaver)
     // If: one-off screensaver frame passed as argument. Handles doDeepSleep()
     if (einkScreensaver != NULL) {
         screensaverFrame = einkScreensaver;
+#if defined(Nodara)
+        // Clear nav bar / banner overlays before deep-sleep screen
+        ui->setOverlays(NULL, 0);
+#endif // Nodara
         ui->setFrames(&screensaverFrame, 1);
     }
 
@@ -1719,7 +1758,13 @@ int Screen::handleStatusUpdate(const meshtastic::Status *arg)
         bool currentUSB = powerStatus->getHasUSB();
         if (currentUSB != lastPowerUSBState) {
             lastPowerUSBState = currentUSB;
+#if !defined(Nodara)
             forceDisplay(true);
+#else
+            // Guard: forceDisplay() touches SPI1; skip if panel is powered off
+            if (screenOn)
+                forceDisplay(true);
+#endif // Nodara
         }
         break;
     }
@@ -1748,7 +1793,15 @@ int Screen::handleTextMessage(const meshtastic_MeshPacket *packet)
 
             // Only wake/force display if the configuration allows it
             if (shouldWakeOnReceivedMessage()) {
+#if defined(Nodara)
+                // setOn(true) is async (enqueues SET_ON); forceDisplay() runs immediately
+                // after and hits a closed SPI1 bus → Hard Fault. Use the synchronous
+                // handleSetOn() so the panel is powered and SPI1 is restored before
+                // forceDisplay() touches the bus.
+                handleSetOn(true);
+#else
                 setOn(true);    // Wake up the screen first
+#endif                          // Nodara
                 forceDisplay(); // Forces screen redraw
             }
             // === Prepare banner/popup content ===
@@ -1779,7 +1832,11 @@ int Screen::handleTextMessage(const meshtastic_MeshPacket *packet)
             if (NotificationRenderer::current_notification_type == notificationTypeEnum::text_input) {
                 // Wake and force redraw so popup is visible immediately
                 if (shouldWakeOnReceivedMessage()) {
+#if defined(Nodara)
+                    handleSetOn(true); // Synchronous: SPI1 must be up before forceDisplay()
+#else
                     setOn(true);
+#endif // Nodara
                     forceDisplay();
                 }
 
@@ -1912,6 +1969,13 @@ int Screen::handleInputEvent(const InputEvent *event)
         NotificationRenderer::inEvent = *event;
         static OverlayCallback overlays[] = {graphics::UIRenderer::drawNavigationBar, NotificationRenderer::drawBannercallback};
         ui->setOverlays(overlays, sizeof(overlays) / sizeof(overlays[0]));
+#if defined(Nodara) && defined(USE_EINK)
+        // text_input branch must also set DEMAND_FAST: the general-purpose flag block below
+        // is only reached for non-text_input events, so without this the E-ink dynamic
+        // display skips every cursor-move frame (FRAME_MATCHED_PREVIOUS).
+        EINK_ADD_FRAMEFLAG(dispdev, DEMAND_FAST);
+        EINK_ADD_FRAMEFLAG(dispdev, BLOCKING);
+#endif                      // Nodara
         setFastFramerate(); // Draw ASAP
         ui->update();
         return 0;
@@ -1939,9 +2003,9 @@ int Screen::handleInputEvent(const InputEvent *event)
 #elif defined(Nodara)
         // Keep Nodara menu state in sync with overlay lifetime so
         // transitions between nested menus do not leave stale state behind.
-        if (nodara::isMenuActive() && !NotificationRenderer::isOverlayBannerShowing()) {
-            nodara::setMenuActive(false);
-        }
+        // if (nodara::isMenuActive() && !NotificationRenderer::isOverlayBannerShowing()) {
+        //     nodara::setMenuActive(false);
+        // }
 #endif
         return 0;
     }

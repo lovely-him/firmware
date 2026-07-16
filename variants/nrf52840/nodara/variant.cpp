@@ -22,6 +22,7 @@
 #include "nrf.h"
 #include "wiring_constants.h"
 #include "wiring_digital.h"
+#include "nodara/GpioteOverride.h"
 
 const uint32_t g_ADigitalPinMap[] = {
     // P0 - pins 0 and 1 are hardwired for xtal and should never be enabled
@@ -33,38 +34,80 @@ const uint32_t g_ADigitalPinMap[] = {
 void initVariant()
 {
     // LED1 & LED2
-    pinMode(PIN_LED1, OUTPUT);
-    ledOff(PIN_LED1);
+    pinMode(PIN_LED3, OUTPUT);
+    digitalWrite(PIN_LED3, !LED_STATE_ON);
 
     pinMode(PIN_LED2, OUTPUT);
-    ledOff(PIN_LED2);
+    digitalWrite(PIN_LED2, !LED_STATE_ON);
 
-    pinMode(PIN_LED3, OUTPUT);
-    ledOff(PIN_LED3);
+    pinMode(PIN_LED1, OUTPUT);
+    digitalWrite(PIN_LED1, !LED_STATE_ON);
 
-    // Keep QSPI flash deselected by default to avoid boot-time bus contention.
     pinMode(PIN_QSPI_CS, OUTPUT);
     digitalWrite(PIN_QSPI_CS, HIGH);
 
-#ifdef PIN_PWR_EN
-    // Some board revisions gate external peripherals (including QSPI flash) via PWR_EN.
-    pinMode(PIN_PWR_EN, OUTPUT);
-    digitalWrite(PIN_PWR_EN, HIGH);
-#endif
-
-    // GNSS and LoRa have separate enable pins; bring both up before any SPI activity.
-#ifdef PIN_POWER_EN
-    pinMode(PIN_POWER_EN, OUTPUT);
-    digitalWrite(PIN_POWER_EN, HIGH);
-#endif
-#ifdef SX126X_POWER_EN
-    pinMode(SX126X_POWER_EN, OUTPUT);
-    digitalWrite(SX126X_POWER_EN, HIGH);
+#if defined(PIN_EXT_FLASH_CS)
+    pinMode(PIN_EXT_FLASH_SCK, OUTPUT);
+    digitalWrite(PIN_EXT_FLASH_SCK, LOW);
+    pinMode(PIN_EXT_FLASH_MOSI, OUTPUT);
+    digitalWrite(PIN_EXT_FLASH_MOSI, LOW);
+    pinMode(PIN_EXT_FLASH_MISO, INPUT);
+    pinMode(PIN_EXT_FLASH_CS, OUTPUT);
+    digitalWrite(PIN_EXT_FLASH_CS, HIGH);
+    pinMode(PIN_EXT_FLASH_WP, OUTPUT);
+    digitalWrite(PIN_EXT_FLASH_WP, HIGH);
+    pinMode(PIN_EXT_FLASH_HOLD, OUTPUT);
+    digitalWrite(PIN_EXT_FLASH_HOLD, HIGH);
 #endif
 }
 
 void variant_shutdown()
 {
-    nrf_gpio_cfg_input(SW_BUT, NRF_GPIO_PIN_PULLUP);
-    nrf_gpio_cfg_sense_set(SW_BUT, NRF_GPIO_PIN_SENSE_LOW);
+    unregisterGpiotePortPin(PIN_BUTTON_LEFT);
+    unregisterGpiotePortPin(PIN_BUTTON_RIGHT);
+    unregisterGpiotePortPin(PIN_BUTTON_UP);
+    unregisterGpiotePortPin(PIN_BUTTON_DOWN);
+    registerGpiotePortPin(PIN_BUTTON_ENTER);
+    unregisterGpiotePortPin(PIN_BUTTON_FN);
+
+    // Turn off all LEDs before deep sleep.
+    digitalWrite(PIN_LED3, !LED_STATE_ON);
+    digitalWrite(PIN_LED2, !LED_STATE_ON);
+    digitalWrite(PIN_LED1, !LED_STATE_ON);
+
+#if defined(PIN_EINK_POWER)
+    pinMode(PIN_EINK_DC, INPUT);
+    pinMode(PIN_EINK_RES, INPUT);
+    pinMode(PIN_EINK_CS, INPUT);
+    pinMode(PIN_EINK_MOSI, INPUT);
+    pinMode(PIN_EINK_SCLK, INPUT);
+    pinMode(PIN_EINK_BUSY, INPUT_PULLDOWN);
+    // Cut panel LDO last (active-LOW: !EINK_POWER_ACTIVE = OFF)
+    digitalWrite(PIN_EINK_POWER, !EINK_POWER_ACTIVE);
+#endif
+
+#if defined(USE_SX1262) && defined(PIN_LORA_PWR)
+    pinMode(PIN_LORA_RST, INPUT);
+    pinMode(PIN_LORA_CS, INPUT);
+    pinMode(PIN_LORA_MOSI, INPUT);
+    pinMode(PIN_LORA_MISO, INPUT);
+    pinMode(PIN_LORA_SCK, INPUT);
+    pinMode(PIN_LORA_DIO1, INPUT_PULLDOWN);
+    pinMode(PIN_LORA_BUSY, INPUT_PULLDOWN);
+    digitalWrite(PIN_LORA_PWR, LOW);
+#endif
+
+#if defined(PIN_EXT_FLASH_CS)
+    pinMode(PIN_EXT_FLASH_SCK, OUTPUT);
+    digitalWrite(PIN_EXT_FLASH_SCK, LOW);
+    pinMode(PIN_EXT_FLASH_MOSI, OUTPUT);
+    digitalWrite(PIN_EXT_FLASH_MOSI, LOW);
+    pinMode(PIN_EXT_FLASH_MISO, INPUT);
+    pinMode(PIN_EXT_FLASH_CS, OUTPUT);
+    digitalWrite(PIN_EXT_FLASH_CS, HIGH);
+    pinMode(PIN_EXT_FLASH_WP, OUTPUT);
+    digitalWrite(PIN_EXT_FLASH_WP, HIGH);
+    pinMode(PIN_EXT_FLASH_HOLD, OUTPUT);
+    digitalWrite(PIN_EXT_FLASH_HOLD, HIGH);
+#endif
 }
