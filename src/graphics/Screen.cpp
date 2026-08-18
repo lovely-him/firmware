@@ -251,6 +251,12 @@ void Screen::showTextInput(const char *header, const char *initialText, uint32_t
     static OverlayCallback overlays[] = {graphics::UIRenderer::drawNavigationBar, NotificationRenderer::drawBannercallback};
     ui->setOverlays(overlays, sizeof(overlays) / sizeof(overlays[0]));
     ui->setTargetFPS(60);
+#if defined(EINK_RA01S_GP02) && defined(USE_EINK)
+    // Entering text_input is a plain BACKGROUND frame; the 30s BACKGROUND
+    // rate-limit silently drops it (previousRunMs is fresh after navigating
+    // here), so the keyboard never shows until the first keypress.
+    EINK_ADD_FRAMEFLAG(dispdev, DEMAND_FAST);
+#endif
     ui->update();
 }
 
@@ -1790,7 +1796,6 @@ int Screen::handleInputEvent(const InputEvent *event)
         // is only reached for non-text_input events, so without this the E-ink dynamic
         // display skips every cursor-move frame (FRAME_MATCHED_PREVIOUS).
         EINK_ADD_FRAMEFLAG(dispdev, DEMAND_FAST);
-        EINK_ADD_FRAMEFLAG(dispdev, BLOCKING);
 #endif                      // EINK_RA01S_GP02
         setFastFramerate(); // Draw ASAP
         ui->update();
@@ -1799,7 +1804,9 @@ int Screen::handleInputEvent(const InputEvent *event)
 
 #ifdef USE_EINK // the screen is the last input handler, so if an event makes it here, we can assume it will prompt a screen draw.
     EINK_ADD_FRAMEFLAG(dispdev, DEMAND_FAST); // Use fast-refresh for next frame, no skip please
+#if !defined(EINK_RA01S_GP02)
     EINK_ADD_FRAMEFLAG(dispdev, BLOCKING);    // Edge case: if this frame is promoted to COSMETIC, wait for update
+#endif
     handleSetOn(true);                        // Ensure power-on to receive deep-sleep screensaver (PowerFSM should handle?)
     setFastFramerate();                       // Draw ASAP
 #endif

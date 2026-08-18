@@ -1447,13 +1447,17 @@ void UIRenderer::drawNavigationBar(OLEDDisplay *display, OLEDDisplayUiState *sta
     }
 
     if (!navBarVisible && navBarPrevVisible) {
+#if !defined(EINK_RA01S_GP02)
         EINK_ADD_FRAMEFLAG(display, DEMAND_FAST); // Fast refresh when hiding nav bar
+#endif
         navBarLastShown = millis();               // Mark when it disappeared
     }
 
     if (!navBarVisible && navBarLastShown != 0 && !cosmeticRefreshDone) {
         if (millis() - navBarLastShown > 10000) {  // 10s after hidden
+#if !defined(EINK_RA01S_GP02)
             EINK_ADD_FRAMEFLAG(display, COSMETIC); // One-time ghost cleanup
+#endif
             cosmeticRefreshDone = true;
         }
     }

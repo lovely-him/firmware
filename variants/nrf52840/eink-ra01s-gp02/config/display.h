@@ -33,7 +33,23 @@
 // ---------------------------------------------------------------------------
 // Dynamic refresh control
 // ---------------------------------------------------------------------------
-#define EINK_LIMIT_FASTREFRESH      (20)
-#define EINK_LIMIT_GHOSTING_PX      (EINK_WIDTH * EINK_HEIGHT / 2)
 #define EINK_BACKGROUND_USES_FAST
 #define EINK_HASQUIRK_GHOSTING
+
+// EINK_ASYNC_FAST: fast (partial) refreshes also run asynchronously on the
+// worker thread — the firmware polls BUSY and then runs the post-refresh
+// write-back (writeImageAgain) + hibernate, so the UI thread is not blocked
+// while the panel refreshes. Ghosting is handled by the standard
+// writeImage → refresh → writeImageAgain protocol (no repeat-refresh needed).
+#define EINK_ASYNC_FAST
+
+// Old "force full refresh" fallbacks — intentionally disabled.
+// The ghosting-repeat mechanism replaces both. Uncomment to restore.
+// #define EINK_ALLOW_FORCE_FULL               // FULL after EINK_LIMIT_FASTREFRESH consecutive fast refreshes
+// #define EINK_ALLOW_GHOST_FALLBACK           // FULL when ghost-pixel count exceeds limit
+#ifdef EINK_ALLOW_FORCE_FULL
+#define EINK_LIMIT_FASTREFRESH  (20)
+#endif
+#ifdef EINK_ALLOW_GHOST_FALLBACK
+#define EINK_LIMIT_GHOSTING_PX  (EINK_WIDTH * EINK_HEIGHT / 2)
+#endif

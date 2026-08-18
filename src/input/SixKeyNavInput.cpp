@@ -4,11 +4,7 @@
 
 #include "configuration.h"
 #include <nrf_gpio.h> // nrf_gpio_cfg_sense_input (HAL, header-only)
-
-#ifdef EINK_RA01S_GP02_INKHUD
-#include "graphics/niche/InkHUD/InkHUD.h"
-#include "input/NavCombos.h" // inkHudIsDisplayOff(), inkHudWakeup()
-#endif
+#include <string.h>
 
 SixKeyNavInput *sixKeyNavInput = nullptr;
 
@@ -33,12 +29,10 @@ static const struct {
 SixKeyNavInput::SixKeyNavInput() : concurrency::OSThread("SixKeyNav")
 {
     _originName = "SixKeyNav";
+    memset(_nav, 0, sizeof(_nav));
+    memset(&_fn, 0, sizeof(_fn));
     _fnConsumed = false;
     _fnPressTime = 0;
-    _navSnapshot = 0;
-    _navPressedMask = 0;
-    _fnSnapshot = false;
-    _snapshotReady = false;
     onComboUp = nullptr;
     onComboDown = nullptr;
     onComboLeft = nullptr;
@@ -56,11 +50,8 @@ void enableGpiotePortCallback(void (*cb)(void));
 // ---------------------------------------------------------------------------
 // Shared PORT-event callback for all 6 button pins.
 // Called from GPIOTE_IRQHandler (GpioteOverride.cpp) on any button edge.
-//
-// Reads all 6 pin levels immediately (active-low: LOW → pressed = bit set),
-// stores them as a snapshot, then wakes the OSThread for processing.
-// If the thread hasn't consumed the previous snapshot yet, the new one
-// simply overwrites it - "keep latest, process once" policy.
+// Latches level changes (captureSnapshotFromISR), then wakes the OSThread
+// for event dispatch. No timing is done here (thread-side only).
 // ---------------------------------------------------------------------------
 static void gpiotePortHandler()
 {
@@ -75,20 +66,25 @@ static void gpiotePortHandler()
 
 // ---------------------------------------------------------------------------
 // Called from the ISR (gpiotePortHandler) with interrupts masked.
-// Reads all 6 pin levels and stores them as a volatile snapshot.
-// New snapshot overwrites any unconsumed previous one ("keep latest" policy).
+// Latches each key's level (pressed) and a sticky release flag. No time is
+// read here (millis() is not ISR-safe); all timing happens in runOnce().
 // ---------------------------------------------------------------------------
 void SixKeyNavInput::captureSnapshotFromISR()
 {
-    uint8_t navSnap = 0;
     for (int i = 0; i < 5; i++) {
-        if (!digitalRead(_nav[i].pin))
-            navSnap |= (1u << i);
+        bool down = !digitalRead(_nav[i].pin); // active-low: LOW = pressed
+        if (down != _nav[i].pressed) {
+            _nav[i].pressed = down;
+            if (!down)
+                _nav[i].release = true; // release edge (single-bit, collapse bounce)
+        }
     }
-    _navSnapshot = navSnap;
-    _navPressedMask |= navSnap; // sticky: accumulate presses; thread clears
-    _fnSnapshot = !digitalRead(_fn.pin);
-    _snapshotReady = true;
+    bool fnDown = !digitalRead(_fn.pin);
+    if (fnDown != _fn.pressed) {
+        _fn.pressed = fnDown;
+        if (!fnDown)
+            _fn.release = true;
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -104,14 +100,10 @@ bool SixKeyNavInput::init()
     // (dedicated channel per pin, ~17 µA each).
     for (int i = 0; i < 5; i++) {
         _nav[i].pin = NAV_TABLE[i].pin;
-        _nav[i].stable = false;
-        _nav[i].combo = false;
-        _nav[i].lastActionMs = 0;
         registerGpiotePortPin(g_ADigitalPinMap[_nav[i].pin]);
     }
 
     _fn.pin = PIN_BUTTON_FN;
-    _fn.stable = false;
     registerGpiotePortPin(g_ADigitalPinMap[_fn.pin]);
 
     enableGpiotePortCallback(gpiotePortHandler);
@@ -150,153 +142,87 @@ void SixKeyNavInput::fireKbEvent(uint8_t kbchar)
 
 // ---------------------------------------------------------------------------
 // Called by the OSThread scheduler after an ISR wakes us, or periodically
-// while any button is held (to service the Fn long-press shutdown timer).
+// while Fn is held (to service the long-press shutdown timer).
 //
-// Design: the ISR captures a level snapshot; we consume it here and do edge
-// detection by comparing against the previous thread-side state (_fn.stable /
-// _nav[i].stable).  "Keep latest, process once" - if a fast press+release
-// completes between two ISR edges the latest snapshot wins.
+// Design: the ISR only latches level changes + a sticky release flag; all
+// timing (per-key debounce, Fn long-press) runs here in thread context.
 // ---------------------------------------------------------------------------
 int32_t SixKeyNavInput::runOnce()
 {
-    // ── Consume ISR snapshot (or fall through to re-check long-press timer) ─
-    // navSnap    : current level of each nav pin (for rising-edge / release detection)
-    // navPressed : sticky OR since last poll (for falling-edge / press detection)
-    //   Using two separate masks ensures a press that completes entirely between
-    //   two thread polls (press+release during e-ink refresh) is not lost:
-    //   navSnap may show 0 (released), but navPressed still has the press bit set.
-    uint8_t navSnap;
-    uint8_t navPressed;
-    bool fnSnap;
-    if (_snapshotReady) {
-        // Single-core nRF52: reading volatile then clearing is safe;
-        // if the ISR fires between reads it overwrites navSnapshot (fine) and
-        // ORs into navPressedMask (fine - thread will pick it up next time).
-        navSnap = _navSnapshot;
-        navPressed = _navPressedMask;
-        fnSnap = _fnSnapshot;
-        _navPressedMask = 0;
-        _snapshotReady = false;
-    } else {
-        // No new ISR snapshot - periodic poll for Fn long-press timer.
-        // Re-read Fn live; synthesise nav state from thread-side stable flags
-        // so the loop below sees no spurious edges.
-        fnSnap = !digitalRead(_fn.pin);
-        navSnap = navPressed = 0;
-        for (int i = 0; i < 5; i++)
-            if (_nav[i].stable)
-                navSnap |= (1u << i);
-        navPressed = navSnap; // held keys: navPending == navNow → no new edge
-    }
+    uint32_t now = millis();
 
-    // ── Fn button ──────────────────────────────────────────────────────────
-    if (fnSnap && !_fn.stable) {
-        // Falling edge: Fn just pressed
-        _fn.stable = true;
-        _fnConsumed = false;
-        _fnPressTime = millis();
-    } else if (!fnSnap && _fn.stable) {
-        // Rising edge: Fn just released - modifier-only, no standalone event
-        _fn.stable = false;
+    // ── Fn release: reset combo/long-press state ──────────────────────────
+    if (_fn.release) {
+        _fn.release = false;
+        _fnPressTime = 0;
         _fnConsumed = false;
     }
 
-    // Long-press check: fire once when Fn held ≥ SHUTDOWN_MS
-    if (_fn.stable && !_fnConsumed && (millis() - _fnPressTime) >= SHUTDOWN_MS) {
-        LOG_INFO("SixKeyNav: Fn held 4s SHUTDOWN");
-        if (onFnHeld)
-            onFnHeld();
-        _fnConsumed = true;
+    // ── Fn long-press (4 s shutdown), fires once ──────────────────────────
+    if (_fn.pressed) {
+        if (_fnPressTime == 0) {
+            _fnPressTime = now; // press start (thread-side)
+            _fnConsumed = false;
+        }
+        if (!_fnConsumed && now - _fnPressTime >= SHUTDOWN_MS) {
+            LOG_INFO("SixKeyNav: Fn held 4s SHUTDOWN");
+            if (onFnHeld)
+                onFnHeld();
+            _fnConsumed = true;
+        }
     }
 
-    // ── Navigation buttons ────────────────────────────────────────────────
-    // Two separate checks (not if/else) so that a press+release that completed
-    // entirely between two polls can be detected in one runOnce() call:
-    //   navPressed bit set  → falling edge (key was pressed since last poll)
-    //   navSnap    bit clear → rising edge  (key is currently released)
+    // ── Navigation buttons: release edge + per-key debounce ───────────────
     for (int i = 0; i < 5; i++) {
-        bool navNow = (navSnap >> i) & 1u;        // current level
-        bool navPending = (navPressed >> i) & 1u; // pressed at any point since last poll
-
-        if (navPending && !_nav[i].stable) {
-            // Falling edge: nav key was pressed since last poll
-            _nav[i].stable = true;
-            if (_fn.stable) {
-                // ── Combo: Fn held + nav key pressed ──────────────────────
-                _nav[i].combo = true;
-                if (millis() - _nav[i].lastActionMs >= DEBOUNCE_MS) {
-                    _nav[i].lastActionMs = millis();
+        if (_nav[i].release) {
+            _nav[i].release = false;
+            if (now - _nav[i].lastChangeMs >= DEBOUNCE_MS) {
+                _nav[i].lastChangeMs = now;
+                if (_fn.pressed) {
+                    // Fn held → combo
+                    _fnConsumed = true; // absorb the pending Fn release
                     LOG_INFO("SixKeyNav: Combo Fn+%s", NAV_TABLE[i].name);
-                    if (i == 0 && onComboUp)
-                        onComboUp();
-                    else if (i == 1 && onComboDown)
-                        onComboDown();
-                    else if (i == 2 && onComboLeft)
-                        onComboLeft();
-                    else if (i == 3 && onComboRight)
-                        onComboRight();
-                    else if (i == 4 && onComboEnter)
-                        onComboEnter();
-                }
-                _fnConsumed = true; // absorb the pending Fn release
-            } else {
-                // ── Normal press: record intent, fire on release ──────────
-                _nav[i].combo = false;
-            }
-        }
-        if (!navNow && _nav[i].stable) {
-            // Rising edge: nav key is currently released
-            _nav[i].stable = false;
-            if (!_nav[i].combo) {
-                // ── Normal navigation event (fired on release) ────────────
-                if (millis() - _nav[i].lastActionMs >= DEBOUNCE_MS) {
-                    _nav[i].lastActionMs = millis();
-                    LOG_INFO("SixKeyNav: %s pressed", NAV_TABLE[i].name);
-#ifdef EINK_RA01S_GP02_INKHUD
-                    // InkHUD mode: call InkHUD navigation API directly.
-                    // joystick.alignment=1 in nicheGraphics.h cancels rotation=3,
-                    // so Up/Down/Left/Right map 1:1 to display directions.
-                    //
-                    // Wakeup guard: if the display panel is powered off (Fn+Down
-                    // was used to cut EN), the first keypress wakes it back up
-                    // instead of navigating. The keypress is consumed as wakeup.
-                    if (inkHudIsDisplayOff()) {
-                        inkHudWakeup();
-                    } else {
-                        using namespace NicheGraphics;
-                        auto *inkhud = InkHUD::InkHUD::getInstance();
-                        if (i == 0)
-                            inkhud->navUp();
-                        else if (i == 1)
-                            inkhud->navDown();
-                        else if (i == 2)
-                            inkhud->navLeft();
-                        else if (i == 3)
-                            inkhud->navRight();
-                        else if (i == 4)
-                            inkhud->shortpress();
+                    switch (i) {
+                    case 0:
+                        if (onComboUp)
+                            onComboUp();
+                        break;
+                    case 1:
+                        if (onComboDown)
+                            onComboDown();
+                        break;
+                    case 2:
+                        if (onComboLeft)
+                            onComboLeft();
+                        break;
+                    case 3:
+                        if (onComboRight)
+                            onComboRight();
+                        break;
+                    case 4:
+                        if (onComboEnter)
+                            onComboEnter();
+                        break;
                     }
-#else
-                    // Standard UI mode: route through InputBroker → Screen.
+                } else {
+                    LOG_INFO("SixKeyNav: %s pressed", NAV_TABLE[i].name);
                     fireEvent(NAV_TABLE[i].evt);
-#endif
                 }
             }
         }
     }
 
-    // While any button is held: poll every 10 ms to service long-press timer
-    // and catch the release edge.  Otherwise go dormant - ISR wakes us.
-    bool anyPressed = _fn.stable;
-    for (int i = 0; i < 5; i++)
-        anyPressed |= _nav[i].stable;
-
+    // Activity LED while any key is physically held
 #ifdef LED_EINK_ACTIVITY
-    // Red LED: ON while any button is physically held, OFF when all released.
+    bool anyPressed = _fn.pressed;
+    for (int i = 0; i < 5; i++)
+        anyPressed |= _nav[i].pressed;
     digitalWrite(LED_EINK_ACTIVITY, anyPressed ? LED_STATE_ON : LED_STATE_OFF);
 #endif
 
-    return (anyPressed ? 10 : INT32_MAX);
+    // Poll every 10 ms while Fn is held (long-press timer). Nav releases are
+    // serviced via ISR wakeup, so we can sleep otherwise.
+    return _fn.pressed ? 10 : INT32_MAX;
 }
 
 #endif // EINK_RA01S_GP02

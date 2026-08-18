@@ -112,6 +112,22 @@ void EInkDynamicDisplay::endOrDetach()
 {
     // If the GxEPD2 version reports that it has the async modifications
 #ifdef HAS_EINK_ASYNCFULL
+#if defined(EINK_ASYNC_FAST)
+    // Full and fast refreshes both run asynchronously: the worker thread
+    // polls BUSY and runs the post-update code (write-back + hibernate,
+    // plus the same-frame ghosting repeat for fast refreshes).
+    if (previousRefresh == FULL || previousRefresh == FAST) {
+        asyncRefreshRunning = true; // Set the flag - checked in determineMode(); cleared by onNotify()
+
+        if (previousFrameFlags & BLOCKING)
+            awaitRefresh();
+        else {
+            // Async begins
+            LOG_DEBUG("Async refresh begins (drop frames)");
+            notifyLater(intervalPollAsyncRefresh, DUE_POLL_ASYNCREFRESH, true); // Hand-off to NotifiedWorkerThread
+        }
+    }
+#else
     if (previousRefresh == FULL) {
         asyncRefreshRunning = true; // Set the flag - checked in determineMode(); cleared by onNotify()
 
@@ -127,8 +143,9 @@ void EInkDynamicDisplay::endOrDetach()
     // Fast Refresh
     else if (previousRefresh == FAST)
         EInkDisplay::endUpdate(); // Still block while updating, but EInkDisplay needs us to call endUpdate() ourselves.
+#endif
 
-        // Fallback - If using an unmodified version of GxEPD2 for some reason
+    // Fallback - If using an unmodified version of GxEPD2 for some reason
 #else
     if (previousRefresh == FULL || previousRefresh == FAST) { // If refresh wasn't skipped (on unspecified..)
         LOG_WARN(
@@ -333,11 +350,15 @@ void EInkDynamicDisplay::checkConsecutiveFastRefreshes()
     }
 
     // If too many FAST refreshes consecutively - force a FULL refresh
+    // Disabled by default: ghosting is handled by the writeImageAgain
+    // protocol. Restore with EINK_ALLOW_FORCE_FULL.
+#if defined(EINK_ALLOW_FORCE_FULL)
     if (fastRefreshCount >= EINK_LIMIT_FASTREFRESH) {
         refresh = FULL;
         reason = EXCEEDED_LIMIT_FASTREFRESH;
         LOG_DEBUG("refresh=FULL, reason=EXCEEDED_LIMIT_FASTREFRESH, frameFlags=0x%x", frameFlags);
     }
+#endif
 }
 
 // No objections, we can perform fast-refresh, if desired
@@ -483,8 +504,15 @@ void EInkDynamicDisplay::joinAsyncRefresh()
     while (adafruitDisplay->epd2.isBusy())
         yield();
 
+#if defined(EINK_ASYNC_FAST)
     // If asyncRefreshRunning flag is still set, but display's BUSY pin reports the refresh is done
+    if (previousRefresh == FAST)
+        adafruitDisplay->endAsyncPartial(); // Run the end of nextPage() code (write-back)
+    else
+        adafruitDisplay->endAsyncFull();
+#else
     adafruitDisplay->endAsyncFull(); // Run the end of nextPage() code
+#endif
     EInkDisplay::endUpdate();        // Run base-class code to finish off update (NOT our derived class override)
     asyncRefreshRunning = false;     // Unset the flag
     LOG_DEBUG("Refresh complete");
@@ -507,11 +535,19 @@ void EInkDynamicDisplay::pollAsyncRefresh()
         return;
     }
 
+#if defined(EINK_ASYNC_FAST)
+    // Finalize: write-back the frame (fast) or power off (full), then hibernate.
+    if (previousRefresh == FAST)
+        adafruitDisplay->endAsyncPartial(); // Run the end of nextPage() code (write-back)
+    else
+        adafruitDisplay->endAsyncFull();
+#else
     // If asyncRefreshRunning flag is still set, but display's BUSY pin reports the refresh is done
     adafruitDisplay->endAsyncFull(); // Run the end of nextPage() code
+#endif
     EInkDisplay::endUpdate();        // Run base-class code to finish off update (NOT our derived class override)
     asyncRefreshRunning = false;     // Unset the flag
-    LOG_DEBUG("Async full-refresh complete");
+    LOG_DEBUG("Async refresh complete");
 
     // Note: this code only works because of a modification to meshtastic/GxEPD2.
     // It is only equipped to intercept calls to nextPage()
@@ -554,8 +590,16 @@ void EInkDynamicDisplay::awaitRefresh()
     while (adafruitDisplay->epd2.isBusy())
         yield();
 
+#if defined(EINK_ASYNC_FAST)
+    // Fast refresh finalizes with write-back; full refresh powers off.
+    if (previousRefresh == FAST)
+        adafruitDisplay->endAsyncPartial(); // Run the end of nextPage() code (write-back)
+    else
+        adafruitDisplay->endAsyncFull();    // Run the end of nextPage() code
+#else
     // End the full-refresh process
     adafruitDisplay->endAsyncFull(); // Run the end of nextPage() code
+#endif
     EInkDisplay::endUpdate();        // Run base-class code to finish off update (NOT our derived class override)
     asyncRefreshRunning = false;     // Unset the flag
 }
